@@ -106,7 +106,7 @@ const InternalStep = struct {
 pub const Tool = struct {
     name: []const u8,
     description: ?[]const u8 = null,
-    args: []Parameter = &.{},
+    args: []const Parameter = &.{},
     // change second parameter
     toolFn: *const fn (self: *const Tool, allocator: std.mem.Allocator, params: std.json.ObjectMap) anyerror![]const u8,
 
@@ -137,23 +137,24 @@ pub const Tool = struct {
         dtype: DataType,
         description: ?[]const u8 = null,
 
-        pub fn describe(self: *const Parameter, allocator: std.mem.Allocator) []const u8 {
+        pub fn describe(self: *const Parameter, allocator: std.mem.Allocator) ![]const u8 {
             // TODO: add support for description?
-            return try std.fmt.allocPrint(allocator, "{}:{}", .{
+            return try std.fmt.allocPrint(allocator, "{s}:{s}", .{
                 self.name,
-                std.enums.tagName(DataType, self.type),
+                std.enums.tagName(DataType, self.dtype).?, // compile error would occur
             });
         }
     };
 
     // should pass in an arena allocator
-    pub fn describe(self: *const Tool, allocator: std.mem.Allocator) []const u8 {
-        var arg_text: []u8 = undefined;
+    pub fn describe(self: *const Tool, allocator: std.mem.Allocator) ![]const u8 {
+        var arg_text: []const u8 = undefined;
         for (self.args, 0..) |arg, i| {
+            const description = try arg.describe(allocator);
             if (i != 0) {
-                arg_text = try std.fmt.allocPrint(allocator, "{s}, {s}", .{ arg_text, arg.describe(allocator) });
+                arg_text = try std.fmt.allocPrint(allocator, "{s}, {s}", .{ arg_text, description });
             } else {
-                arg_text = arg.describe(allocator);
+                arg_text = description;
             }
         }
         const tool_text = try std.fmt.allocPrint(allocator, "{s}({s})", .{
@@ -176,13 +177,14 @@ pub const ToolManager = struct {
     tools: []const Tool,
 
     // should pass in an arena allocator
-    pub fn describe(self: *const ToolManager, allocator: std.mem.Allocator) []const u8 {
-        var tool_text: []u8 = undefined;
+    pub fn describe(self: *const ToolManager, allocator: std.mem.Allocator) ![]const u8 {
+        var tool_text: []const u8 = undefined;
         for (self.tools, 0..) |tool, i| {
+            const description = try tool.describe(allocator);
             if (i != 0) {
-                tool_text = try std.fmt.allocPrint(allocator, "{s}, {s}", .{ tool_text, tool.describe(allocator) });
+                tool_text = try std.fmt.allocPrint(allocator, "{s}, {s}", .{ tool_text, description });
             } else {
-                tool_text = tool.describe(allocator);
+                tool_text = description;
             }
         }
         return tool_text;
@@ -232,13 +234,21 @@ pub fn main() !void {
     var arr = try ArrayList.initCapacity(allocator, 2);
     defer arr.deinit(allocator);
 
+    const manager: ToolManager = .{
+        .tools = &[_]Tool{
+            weather_tool,
+        },
+    };
+
     const prompt = try std.fmt.allocPrint(allocator, XML_REACT_PROMPT, .{
         "You are a helpful agent who must use tools to answer the user's prompt/question.",
-        "return(text: str), get_weather(city: str)",
+        try manager.describe(arena.allocator()),
         "What is the weather in New Berlin?",
         "",
     });
     defer allocator.free(prompt);
+
+    std.log.info("Prompt:\n{s}", .{prompt});
 
     const response = try openai.chat.completions.create(.{
         .model = "gpt-4o-mini",
