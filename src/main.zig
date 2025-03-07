@@ -46,13 +46,13 @@ const ChatMessage = proxz.ChatMessage;
 const InternalStep = struct {
     raw: []const u8,
     thoughts: []const u8,
-    action: []const u8,
+    tool: []const u8,
     parameters: []const u8,
     observation: ?[]const u8 = null,
 
     const ParseError = error{
         MissingThoughts,
-        MissingAction,
+        MissingTool,
         MissingParameters,
     };
 
@@ -74,25 +74,25 @@ const InternalStep = struct {
         if (lines.next()) |line| {
             if (line.len >= "thoughts: ".len) {
                 // TODO: do error handling
-                step.thoughts = line["thoughts: ".len..];
+                step.thoughts = std.mem.trim(u8, line["thoughts: ".len..], "\t ");
             }
         }
         if (lines.next()) |line| {
-            if (line.len >= "action: ".len) {
+            if (line.len >= "tool: ".len) {
                 // TODO: do error handling
-                step.action = line["action: ".len..];
+                step.tool = std.mem.trim(u8, line["tool: ".len..], "\t ");
             }
         }
         if (lines.next()) |line| {
             if (line.len >= "parameters: ".len) {
                 // TODO do error handling
-                step.parameters = line["parameters: ".len..];
+                step.parameters = std.mem.trim(u8, line["parameters: ".len..], "\t ");
             }
         }
         return step;
     }
 
-    pub fn format(self: InternalStep, allocator: std.mem.Allocator) ![]const u8 {
+    pub fn formatPrompt(self: InternalStep, allocator: std.mem.Allocator) ![]const u8 {
         // TODO: clean this up
         _ = allocator;
         return self.raw;
@@ -169,6 +169,10 @@ pub const Tool = struct {
         // TODO: implement this
         return self.name.len > 0;
     }
+
+    pub fn execute(self: *const Tool, allocator: std.mem.Allocator, params: std.json.ObjectMap) ![]const u8 {
+        return try self.toolFn(self, allocator, params);
+    }
 };
 
 pub const ToolManager = struct {
@@ -189,11 +193,33 @@ pub const ToolManager = struct {
         }
         return tool_text;
     }
+
+    pub fn act(self: *const ToolManager, allocator: std.mem.Allocator, step: InternalStep) ![]const u8 {
+        const parameters = std.json.parseFromSliceLeaky(
+            std.json.Value,
+            allocator,
+            step.parameters,
+            .{},
+        ) catch {
+            return "Failed to parse parameters.";
+        };
+        // TODO: error catch
+        for (self.tools) |tool| {
+            std.log.info("'{s}' <=> '{s}'", .{ tool.name, step.tool });
+            if (std.mem.eql(u8, tool.name, step.tool)) {
+                return tool.execute(allocator, parameters.object) catch {
+                    return "Error when running tool.";
+                };
+            }
+        }
+        return "Error: no tool found with that name.";
+    }
 };
 
-pub fn getWeather(_: *const Tool, allocator: std.mem.Allocator, params: std.json.ObjectMap) ![]const u8 {
+pub fn getWeather(tool: *const Tool, allocator: std.mem.Allocator, params: std.json.ObjectMap) ![]const u8 {
     _ = allocator;
     _ = params;
+    _ = tool;
     return "53 and sunny - low chance of rain";
 }
 
@@ -264,5 +290,13 @@ pub fn main() !void {
     });
     defer response.deinit();
 
-    std.log.info("{s}", .{response.choices[0].message.content});
+    std.log.info("{s}\n==================================", .{response.choices[0].message.content});
+
+    const step = try InternalStep.parse(
+        allocator,
+        response.choices[0].message.content,
+    );
+
+    const output = try manager.act(arena.allocator(), step);
+    std.log.info("Output: {s}", .{output});
 }
