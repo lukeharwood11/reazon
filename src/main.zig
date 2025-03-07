@@ -145,6 +145,7 @@ pub const Tool = struct {
         description: ?[]const u8 = null,
 
         pub fn describe(self: *const Parameter, allocator: std.mem.Allocator) []const u8 {
+            // TODO: add support for description?
             return try std.fmt.allocPrint(allocator, "{}:{}", .{ self.name, std.enums.tagName(DataType, self.type) });
         }
     };
@@ -153,14 +154,17 @@ pub const Tool = struct {
     pub fn describe(self: *const Tool, allocator: std.mem.Allocator) []const u8 {
         var arg_text: []u8 = "";
         for (self.args, 0..) |arg, i| {
-            if (i + 1 == self.args.len) {
+            if (i != 0) {
                 arg_text = try std.fmt.allocPrint(allocator, "{s}, {s}", .{ arg_text, arg.describe(allocator) });
             } else {
                 arg_text = arg.describe(allocator);
             }
         }
-        // TODO: lukeharwood pause
-        return "";
+        const tool_text = try std.fmt.allocPrint(allocator, "{s}({s})", .{
+            self.name,
+            arg_text,
+        });
+        return tool_text;
     }
 
     /// Should this be runtime/comptime?
@@ -168,6 +172,10 @@ pub const Tool = struct {
         // TODO: implement this
         return self.name.len > 0;
     }
+};
+
+pub const ToolManager = struct {
+    // TODO: lukeharwood11 continue here...
 };
 
 pub fn getWeather(allocator: std.mem.Allocator, params: std.json.ObjectMap) ![]const u8 {
@@ -203,6 +211,10 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
+
+    var arena = std.heap.ArenaAllocator.init(allocator);
+    defer arena.deinit();
+
     var openai = try proxz.OpenAI.init(allocator, .{});
     defer openai.deinit();
 
