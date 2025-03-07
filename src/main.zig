@@ -28,6 +28,11 @@ const XML_REACT_PROMPT =
     \\ {s}
 ;
 
+// There should be some concept of a Template that collects imnplementations of interfaces
+// i.e. it should have a Formatter (for the prompt) that returns a PromptInput,
+// and a Parser (for the response) that returns an InternalStep
+const Template = struct {};
+
 const TemplateInput = struct {
     system_prompt: []const u8,
     content: []const u8,
