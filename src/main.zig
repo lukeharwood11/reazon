@@ -93,34 +93,22 @@ const InternalStep = struct {
     }
 
     pub fn format(self: InternalStep, allocator: std.mem.Allocator) ![]const u8 {
-        const fmt_string =
-            \\<thought>{s}</thought>
-            \\<action>{s}</action>
-            \\<parameters>{s}</parameters>
-            \\<observation>{s}</observation>
-        ;
-        const string = try std.fmt.allocPrint(
-            allocator,
-            fmt_string,
-            .{
-                self.thought,
-                self.action,
-                self.parameters.?,
-                self.observation.?,
-            },
-        );
-        return string;
+        // TODO: clean this up
+        _ = allocator;
+        return self.raw;
     }
 };
 
 // Note:
 // 1. the first arg most likely needs to be of type Tool with anyopaque
 // 2. a registered tool either needs to have access to the parent Agent, or it needs to have
+// 3. should tools have a handle to the agent?
 pub const Tool = struct {
     name: []const u8,
     description: ?[]const u8 = null,
     args: []Parameter = &.{},
-    toolFn: *const fn (allocator: std.mem.Allocator, params: std.json.ObjectMap) anyerror![]const u8,
+    // change second parameter
+    toolFn: *const fn (self: *const Tool, allocator: std.mem.Allocator, params: std.json.ObjectMap) anyerror![]const u8,
 
     pub fn fromStruct(comptime T: type) void {
         _ = T;
@@ -151,13 +139,16 @@ pub const Tool = struct {
 
         pub fn describe(self: *const Parameter, allocator: std.mem.Allocator) []const u8 {
             // TODO: add support for description?
-            return try std.fmt.allocPrint(allocator, "{}:{}", .{ self.name, std.enums.tagName(DataType, self.type) });
+            return try std.fmt.allocPrint(allocator, "{}:{}", .{
+                self.name,
+                std.enums.tagName(DataType, self.type),
+            });
         }
     };
 
     // should pass in an arena allocator
     pub fn describe(self: *const Tool, allocator: std.mem.Allocator) []const u8 {
-        var arg_text: []u8 = "";
+        var arg_text: []u8 = undefined;
         for (self.args, 0..) |arg, i| {
             if (i != 0) {
                 arg_text = try std.fmt.allocPrint(allocator, "{s}, {s}", .{ arg_text, arg.describe(allocator) });
@@ -180,13 +171,28 @@ pub const Tool = struct {
 };
 
 pub const ToolManager = struct {
-    // TODO: lukeharwood11 continue here...
+    // Note: refactor to use String type from zig-string or some equivalent (or make your own Luke:)
+    // Maybe this should have a reference to the agent? And then the Tool has access to it's manager?
+    tools: []const Tool,
+
+    // should pass in an arena allocator
+    pub fn describe(self: *const ToolManager, allocator: std.mem.Allocator) []const u8 {
+        var tool_text: []u8 = undefined;
+        for (self.tools, 0..) |tool, i| {
+            if (i != 0) {
+                tool_text = try std.fmt.allocPrint(allocator, "{s}, {s}", .{ tool_text, tool.describe(allocator) });
+            } else {
+                tool_text = tool.describe(allocator);
+            }
+        }
+        return tool_text;
+    }
 };
 
-pub fn getWeather(allocator: std.mem.Allocator, params: std.json.ObjectMap) ![]const u8 {
+pub fn getWeather(_: *const Tool, allocator: std.mem.Allocator, params: std.json.ObjectMap) ![]const u8 {
     _ = allocator;
     _ = params;
-    return "53 and sunny!";
+    return "53 and sunny - low chance of rain";
 }
 
 const weather_tool: Tool = .{
@@ -200,17 +206,17 @@ const weather_tool: Tool = .{
     .toolFn = getWeather,
 };
 
-const return_tool: Tool = .{
-    .name = "return",
-    .description = "when you're ready to respond to the user",
-    .args = &[_]Tool.Parameter{
-        .{
-            .name = "text",
-            .dtype = .string,
-            .description = "response text",
-        },
-    },
-};
+// const return_tool: Tool = .{
+//     .name = "return",
+//     .description = "when you're ready to respond to the user",
+//     .args = &[_]Tool.Parameter{
+//         .{
+//             .name = "text",
+//             .dtype = .string,
+//             .description = "response text",
+//         },
+//     },
+// };
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
