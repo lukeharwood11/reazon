@@ -7,28 +7,27 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const lib = b.addStaticLibrary(.{
-        .name = "agentz",
+    const agentz_module = b.addModule("agentz", .{
         .root_source_file = b.path("agentz/root.zig"),
-        .target = target,
-        .optimize = optimize,
     });
-    b.installArtifact(lib);
-
-    const exe = b.addExecutable(.{
-        .name = "agentz",
-        .root_source_file = b.path("agentz/main.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-    b.installArtifact(exe);
 
     const proxz = b.dependency("proxz", .{
         .target = target,
         .optimize = optimize,
     });
 
-    exe.root_module.addImport("proxz", proxz.module("proxz"));
+    agentz_module.addImport("proxz", proxz.module("proxz"));
+
+    const exe = b.addExecutable(.{
+        .name = "agentz",
+        .root_source_file = b.path("examples/main.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    b.installArtifact(exe);
+
+    exe.root_module.addImport("agentz", agentz_module);
+
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
     if (b.args) |args| {

@@ -1,7 +1,9 @@
 const std = @import("std");
 const proxz = @import("proxz");
-const Tool = @import("tools/base.zig").Tool;
-const Agent = @import("agents/base.zig").Agent;
+const agentz = @import("agentz");
+
+const Tool = agentz.tools.Tool;
+const Agent = agentz.agents.Agent;
 
 pub fn main() !void {
     const DebugAllocator = std.heap.DebugAllocator(.{});
