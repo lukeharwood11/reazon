@@ -1,6 +1,7 @@
 const std = @import("std");
 const tools = @import("../tools/base.zig");
 const proxz = @import("proxz");
+const logging = @import("../logging.zig");
 
 const ToolManager = tools.ToolManager;
 const Tool = tools.Tool;
@@ -67,7 +68,6 @@ pub const InternalStep = struct {
         var step: InternalStep = undefined;
         step.observation = null;
 
-        std.log.debug("================== Parsing LLM output ================\n{s}", .{slice});
         var lines = std.mem.tokenizeSequence(u8, slice, "\n");
         // parse thoughts
         step.raw = slice;
@@ -102,6 +102,8 @@ pub const InternalStep = struct {
     }
 
     pub fn formatPrompt(self: InternalStep, allocator: std.mem.Allocator) ![]const u8 {
+        // FIXME: if the string can't be parsed correctly, this will print an invalid output.
+        // Switch to display `raw` if it wasn't parsed.
         const FORMAT_STRING =
             \\thoughts: {s}
             \\tool: {s}
@@ -131,6 +133,9 @@ pub const Agent = struct {
     pub fn init(allocator: std.mem.Allocator, config: AgentConfig) !Agent {
         const arena = try allocator.create(std.heap.ArenaAllocator);
         arena.* = std.heap.ArenaAllocator.init(allocator);
+        errdefer arena.child_allocator.destroy(arena);
+        errdefer arena.deinit();
+
         const openai = try proxz.OpenAI.init(allocator, .{});
         const manager = try ToolManager.init(allocator, config.tools);
         return .{
@@ -173,8 +178,6 @@ pub const Agent = struct {
             });
             defer allocator.free(prompt);
 
-            std.log.info("Prompt:\n{s}", .{prompt});
-
             const response = try self.openai.chat.completions.create(.{
                 .model = "gpt-4o",
                 .messages = &[_]ChatMessage{
@@ -189,18 +192,22 @@ pub const Agent = struct {
             });
             defer response.deinit();
 
-            std.log.info("{s}\n==================================", .{response.choices[0].message.content});
-
             var step = try InternalStep.parse(
                 self.arena.allocator(),
                 response.choices[0].message.content,
             );
 
+            logging.logInfo("LLM thought: {s}", step.thoughts, logging.Colors.ok_green ++ logging.Colors.bold ++ logging.Colors.italic);
+            logging.logInfo("{s}", step.tool, logging.Colors.bold ++ logging.Colors.italic);
+
             const output = try self.tool_manager.execute(
                 self.arena.allocator(),
                 step,
             );
+            logging.logInfo("{s}", output.content, logging.Colors.fail ++ logging.Colors.bold ++ logging.Colors.italic);
+
             step.observe(output.content);
+            logging.logInfo("{s}", step.thoughts, logging.Colors.ok_green ++ logging.Colors.bold ++ logging.Colors.italic);
             try internal_steps.append(allocator, step);
             if (output.exit) {
                 return output.content;

@@ -37,5 +37,5 @@ pub fn main() !void {
     defer agent.deinit();
 
     const response = try agent.execute("What is the weather in new berlin?");
-    std.log.info("Main Output: {s}", .{response});
+    std.log.info("\"{s}\"", .{response});
 }
