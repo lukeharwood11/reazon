@@ -7,25 +7,25 @@ const ArrayList = std.ArrayListUnmanaged(InternalStep);
 //
 // const agent - agentz.Agent(llm, template)
 const XML_REACT_PROMPT =
-    \\ {s}
+    \\{s}
     \\
-    \\ available tools: {s}
+    \\available tools: {s}
     \\
-    \\ ALWAYS follow the following format:
-    \\ input: [a user prompt or task]
-    \\ thoughts: [you must think about what to do]
-    \\ tool: [you must choose a tool to use]
-    \\ parameters: [you must pass in parameters in the form of valid JSON. Pass in empty {{}} if no arguments are needed]
-    \\ observation: [the output of the tool/parameter call]
-    \\ ... repeat the thoughts/tool/parameter/observation seqence until the task is completed.
-    \\ thoughts: Given [insert evidence here] I've completed the task/prompt [or "it cannot be done"]
-    \\ tool: return
-    \\ parameters: {{"text": "[your response to the user]"}}
+    \\ALWAYS follow the following format:
+    \\input: [a user prompt or task]
+    \\thoughts: [you must think about what to do]
+    \\tool: [you must choose a tool to use, output just the tool name and place parameters below]
+    \\parameters: [you must pass in parameters in the form of valid JSON. Pass in empty {{}} if no arguments are needed]
+    \\observation: [the output of the tool/parameter call]
+    \\... repeat the thoughts/tool/parameter/observation seqence until the task is completed.
+    \\thoughts: Given [insert evidence here] I've completed the task/prompt [or "it cannot be done"]
+    \\tool: return
+    \\parameters: {{"text": "[your response to the user]"}}
     \\
-    \\ GO!
+    \\GO!
     \\
-    \\ input: {s}
-    \\ {s}
+    \\input: {s}
+    \\{s}
 ;
 
 // There should be some concept of a Template that collects imnplementations of interfaces
@@ -62,8 +62,6 @@ const InternalStep = struct {
 
     pub fn parse(allocator: std.mem.Allocator, slice: []const u8) !InternalStep {
         // split by lines
-        _ = allocator; // is this needed?
-
         var step: InternalStep = undefined;
         step.observation = null;
 
@@ -74,28 +72,46 @@ const InternalStep = struct {
         if (lines.next()) |line| {
             if (line.len >= "thoughts: ".len) {
                 // TODO: do error handling
-                step.thoughts = std.mem.trim(u8, line["thoughts: ".len..], "\t ");
+                step.thoughts = try allocator.dupe(
+                    u8,
+                    std.mem.trim(u8, line["thoughts: ".len..], "\t "),
+                );
             }
         }
         if (lines.next()) |line| {
             if (line.len >= "tool: ".len) {
                 // TODO: do error handling
-                step.tool = std.mem.trim(u8, line["tool: ".len..], "\t ");
+                step.tool = try allocator.dupe(
+                    u8,
+                    std.mem.trim(u8, line["tool: ".len..], "\t "),
+                );
             }
         }
         if (lines.next()) |line| {
             if (line.len >= "parameters: ".len) {
                 // TODO do error handling
-                step.parameters = std.mem.trim(u8, line["parameters: ".len..], "\t ");
+                step.parameters = try allocator.dupe(
+                    u8,
+                    std.mem.trim(u8, line["parameters: ".len..], "\t "),
+                );
             }
         }
         return step;
     }
 
     pub fn formatPrompt(self: InternalStep, allocator: std.mem.Allocator) ![]const u8 {
-        // TODO: clean this up
-        _ = allocator;
-        return self.raw;
+        const FORMAT_STRING =
+            \\thoughts: {s}
+            \\tool: {s}
+            \\parameters: {s}
+            \\observation: {s}
+        ;
+        return try std.fmt.allocPrint(allocator, FORMAT_STRING, .{
+            self.thoughts,
+            self.tool,
+            self.parameters,
+            self.observation.?,
+        });
     }
 };
 
@@ -106,16 +122,22 @@ const InternalStep = struct {
 pub const Tool = struct {
     name: []const u8,
     description: ?[]const u8 = null,
-    args: []const Parameter = &.{},
+    params: []const Parameter = &.{},
     // change second parameter
     toolFn: *const fn (self: *const Tool, allocator: std.mem.Allocator, params: std.json.ObjectMap) anyerror![]const u8,
+    config: Config = .default,
+
+    pub const Config = struct {
+        exit: bool = false,
+        pub const default: Config = .{};
+    };
 
     pub fn fromStruct(comptime T: type) void {
         _ = T;
         // TODO: implement
         // const tool = Tool.fromType(struct {
         //      pub const description = "This is the description";
-        //      pub const args = &[_]Tool.Parameter{.{
+        //      pub const params = &[_]Tool.Parameter{.{
         //          .name = "test",
         //          .dtype = .string,
         //          .description = "something to describe",
@@ -149,7 +171,7 @@ pub const Tool = struct {
     // should pass in an arena allocator
     pub fn describe(self: *const Tool, allocator: std.mem.Allocator) ![]const u8 {
         var arg_text: []const u8 = undefined;
-        for (self.args, 0..) |arg, i| {
+        for (self.params, 0..) |arg, i| {
             const description = try arg.describe(allocator);
             if (i != 0) {
                 arg_text = try std.fmt.allocPrint(allocator, "{s}, {s}", .{ arg_text, description });
@@ -180,6 +202,33 @@ pub const ToolManager = struct {
     // Maybe this should have a reference to the agent? And then the Tool has access to it's manager?
     tools: []const Tool,
 
+    pub const ToolOutput = struct {
+        exit: bool = false,
+        content: []const u8,
+    };
+
+    const return_tool: Tool = .{
+        .name = "return",
+        .description = "When you know the answer or can't find the answer.",
+        .params = &[_]Tool.Parameter{
+            .{
+                .name = "text",
+                .dtype = .string,
+                .description = "The output to give to the user",
+            },
+        },
+        .toolFn = struct {
+            pub fn toolFn(_: *const Tool, _: std.mem.Allocator, params: std.json.ObjectMap) ![]const u8 {
+                const output = params.get("text");
+                if (output) |text| {
+                    return text.string;
+                }
+                return "I didn't format my response properly, sorry :(";
+            }
+        }.toolFn,
+        .config = .{ .exit = true },
+    };
+
     // should pass in an arena allocator
     pub fn describe(self: *const ToolManager, allocator: std.mem.Allocator) ![]const u8 {
         var tool_text: []const u8 = undefined;
@@ -194,25 +243,29 @@ pub const ToolManager = struct {
         return tool_text;
     }
 
-    pub fn act(self: *const ToolManager, allocator: std.mem.Allocator, step: InternalStep) ![]const u8 {
+    pub fn execute(self: *const ToolManager, allocator: std.mem.Allocator, step: InternalStep) !ToolOutput {
         const parameters = std.json.parseFromSliceLeaky(
             std.json.Value,
             allocator,
             step.parameters,
             .{},
         ) catch {
-            return "Failed to parse parameters.";
+            return .{ .content = "Failed to parse parameters." };
         };
         // TODO: error catch
         for (self.tools) |tool| {
             std.log.info("'{s}' <=> '{s}'", .{ tool.name, step.tool });
             if (std.mem.eql(u8, tool.name, step.tool)) {
-                return tool.execute(allocator, parameters.object) catch {
-                    return "Error when running tool.";
+                const tool_output = tool.execute(allocator, parameters.object) catch {
+                    return .{ .content = "Error when running tool." };
+                };
+                return .{
+                    .exit = tool.config.exit,
+                    .content = tool_output,
                 };
             }
         }
-        return "Error: no tool found with that name.";
+        return .{ .content = "Error: no tool found with that name." };
     }
 };
 
@@ -226,7 +279,7 @@ pub fn getWeather(tool: *const Tool, allocator: std.mem.Allocator, params: std.j
 const weather_tool: Tool = .{
     .name = "get_weather",
     .description = "Get's weather for the given city",
-    .args = &[_]Tool.Parameter{.{
+    .params = &[_]Tool.Parameter{.{
         .name = "city",
         .dtype = .string,
         .description = "The city to search",
@@ -237,7 +290,7 @@ const weather_tool: Tool = .{
 // const return_tool: Tool = .{
 //     .name = "return",
 //     .description = "when you're ready to respond to the user",
-//     .args = &[_]Tool.Parameter{
+//     .params = &[_]Tool.Parameter{
 //         .{
 //             .name = "text",
 //             .dtype = .string,
@@ -263,40 +316,66 @@ pub fn main() !void {
     const manager: ToolManager = .{
         .tools = &[_]Tool{
             weather_tool,
+            ToolManager.return_tool,
         },
     };
 
-    const prompt = try std.fmt.allocPrint(allocator, XML_REACT_PROMPT, .{
-        "You are a helpful agent who must use tools to answer the user's prompt/question.",
-        try manager.describe(arena.allocator()),
-        "What is the weather in New Berlin?",
-        "",
-    });
-    defer allocator.free(prompt);
+    var done = false;
+    var internal_steps = try ArrayList.initCapacity(allocator, 2);
+    defer internal_steps.deinit(allocator);
 
-    std.log.info("Prompt:\n{s}", .{prompt});
+    var cnt: usize = 0;
 
-    const response = try openai.chat.completions.create(.{
-        .model = "gpt-4o-mini",
-        .messages = &[_]ChatMessage{
-            .{
-                .role = "user",
-                .content = prompt,
+    while (!done) {
+        var step_string: []const u8 = "";
+
+        for (internal_steps.items, 0..) |step, i| {
+            step_string = try std.fmt.allocPrint(arena.allocator(), "{s}{s}{s}", .{
+                step_string,
+                if (i == 0) "" else "\n",
+                try step.formatPrompt(arena.allocator()),
+            });
+        }
+
+        const prompt = try std.fmt.allocPrint(allocator, XML_REACT_PROMPT, .{
+            "You are a helpful agent who must use tools to answer the user's prompt/question.",
+            try manager.describe(arena.allocator()),
+            "What is the weather in New Berlin?",
+            step_string,
+        });
+        defer allocator.free(prompt);
+
+        std.log.info("Prompt:\n{s}", .{prompt});
+
+        const response = try openai.chat.completions.create(.{
+            .model = "gpt-4o-mini",
+            .messages = &[_]ChatMessage{
+                .{
+                    .role = "user",
+                    .content = prompt,
+                },
             },
-        },
-        .stop = &[_][]const u8{
-            "observation: ",
-        },
-    });
-    defer response.deinit();
+            .stop = &[_][]const u8{
+                "observation: ",
+            },
+        });
+        defer response.deinit();
 
-    std.log.info("{s}\n==================================", .{response.choices[0].message.content});
+        std.log.info("{s}\n==================================", .{response.choices[0].message.content});
 
-    const step = try InternalStep.parse(
-        allocator,
-        response.choices[0].message.content,
-    );
+        var step = try InternalStep.parse(
+            arena.allocator(),
+            response.choices[0].message.content,
+        );
 
-    const output = try manager.act(arena.allocator(), step);
-    std.log.info("Output: {s}", .{output});
+        const output = try manager.execute(arena.allocator(), step);
+        std.log.info("Output: {s}", .{output.content});
+        step.observe(output.content);
+        try internal_steps.append(allocator, step);
+        if (output.exit) {
+            done = true;
+            std.log.info("=================== OUTPUT =================\n'{s}'", .{output.content});
+        }
+        cnt = cnt + 1;
+    }
 }
