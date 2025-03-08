@@ -186,9 +186,9 @@ pub const Tool = struct {
         return tool_text;
     }
 
-    /// Should this be runtime/comptime?
+    /// This is a runtime function, since it allows tools to be created dynamically
     pub fn validate(self: *const Tool) bool {
-        // TODO: implement this
+        // TODO:implement this
         return self.name.len > 0;
     }
 
@@ -368,7 +368,10 @@ pub fn main() !void {
             response.choices[0].message.content,
         );
 
-        const output = try manager.execute(arena.allocator(), step);
+        const output = try manager.execute(
+            arena.allocator(),
+            step,
+        );
         std.log.info("Output: {s}", .{output.content});
         step.observe(output.content);
         try internal_steps.append(allocator, step);
