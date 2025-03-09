@@ -7,8 +7,8 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const agentz_module = b.addModule("agentz", .{
-        .root_source_file = b.path("agentz/root.zig"),
+    const reazon_module = b.addModule("reazon", .{
+        .root_source_file = b.path("reazon/root.zig"),
     });
 
     const proxz = b.dependency("proxz", .{
@@ -16,17 +16,17 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    agentz_module.addImport("proxz", proxz.module("proxz"));
+    reazon_module.addImport("proxz", proxz.module("proxz"));
 
     const exe = b.addExecutable(.{
-        .name = "agentz",
+        .name = "reazon",
         .root_source_file = b.path("examples/main.zig"),
         .target = target,
         .optimize = optimize,
     });
     b.installArtifact(exe);
 
-    exe.root_module.addImport("agentz", agentz_module);
+    exe.root_module.addImport("reazon", reazon_module);
 
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
@@ -36,13 +36,13 @@ pub fn build(b: *std.Build) void {
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
     const lib_unit_tests = b.addTest(.{
-        .root_source_file = b.path("agentz/root.zig"),
+        .root_source_file = b.path("reazon/root.zig"),
         .target = target,
         .optimize = optimize,
     });
     const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
     const exe_unit_tests = b.addTest(.{
-        .root_source_file = b.path("agentz/main.zig"),
+        .root_source_file = b.path("reazon/main.zig"),
         .target = target,
         .optimize = optimize,
     });

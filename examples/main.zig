@@ -1,9 +1,10 @@
 const std = @import("std");
 const proxz = @import("proxz");
-const agentz = @import("agentz");
+const reazon = @import("reazon");
 
-const Tool = agentz.tools.Tool;
-const Agent = agentz.agents.Agent;
+const Tool = reazon.tools.Tool;
+const Agent = reazon.agents.Agent;
+const ChatOpenAI = reazon.llm.openai.ChatOpenAI;
 
 pub fn main() !void {
     const DebugAllocator = std.heap.DebugAllocator(.{});
@@ -30,9 +31,17 @@ pub fn main() !void {
         weather_tool,
     };
 
+    const openai = try ChatOpenAI.init(
+        allocator,
+        .{},
+        .{},
+    );
+    defer openai.deinit();
+
     var agent = try Agent.init(allocator, .{
         .system_prompt = "You are a helpful agent.",
         .tools = tools,
+        .llm = openai.llm(),
     });
     defer agent.deinit();
 

@@ -1,7 +1,7 @@
 const std = @import("std");
 
 // Create a scoped logger that the library can use
-pub const logger = std.log.scoped(.agentz);
+pub const logger = std.log.scoped(.reazon);
 
 pub const LoggingConfig = struct {};
 

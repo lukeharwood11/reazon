@@ -2,13 +2,14 @@ const std = @import("std");
 const tools = @import("../tools/base.zig");
 const proxz = @import("proxz");
 const logging = @import("../logging.zig");
+const LLM = @import("../llm/base.zig").LLM;
 
 const ToolManager = tools.ToolManager;
 const Tool = tools.Tool;
 const ArrayList = std.ArrayListUnmanaged;
 const ChatMessage = proxz.ChatMessage;
 
-// const agentz = @import("agentz");
+// const reazon = @import("reazon");
 //
 // There should be some concept of a Template that collects imnplementations of interfaces
 // i.e. it should have a Formatter (for the prompt) that returns a PromptInput,
@@ -23,7 +24,7 @@ const TemplateInput = struct {
 /// TODO: implement me so that things can be generic
 const StepWriter = struct {};
 
-// const agent - agentz.Agent(llm, template)
+// const agent - reazon.Agent(llm, template)
 const DEFAULT_REACT_PROMPT =
     \\{s}
     \\
@@ -123,10 +124,10 @@ pub const Agent = struct {
     config: AgentConfig,
     arena: *std.heap.ArenaAllocator,
     tool_manager: ToolManager,
-    openai: *proxz.OpenAI,
 
     pub const AgentConfig = struct {
         tools: []const Tool,
+        llm: *LLM,
         system_prompt: []const u8 = "You are a helpful assistant.",
     };
 
@@ -136,20 +137,17 @@ pub const Agent = struct {
         errdefer arena.child_allocator.destroy(arena);
         errdefer arena.deinit();
 
-        const openai = try proxz.OpenAI.init(allocator, .{});
         const manager = try ToolManager.init(allocator, config.tools);
         return .{
             .config = config,
             .arena = arena,
             .tool_manager = manager,
-            .openai = openai,
         };
     }
 
     pub fn deinit(self: *Agent) void {
         self.tool_manager.deinit();
         self.arena.deinit();
-        self.openai.deinit();
 
         self.arena.child_allocator.destroy(self.arena);
     }
