@@ -129,8 +129,8 @@ pub const ChatOpenAI = struct {
     const openai_chat_config_ti = @typeInfo(OpenAIChatConfig);
     const chat_request_ti = @typeInfo(proxz.completions.ChatCompletionsRequest);
 
-    pub fn chat(ptr: *anyopaque, messages: []const base.ChatMessage) ![]const u8 {
-        const self: *ChatOpenAI = @ptrCast(@alignCast(ptr));
+    pub fn chat(ptr: *const anyopaque, messages: []const base.ChatMessage) ![]const u8 {
+        const self: *const ChatOpenAI = @ptrCast(@alignCast(ptr));
         const allocator = self.openai.allocator;
         var request_messages = try ArrayList(proxz.ChatMessage).initCapacity(allocator, messages.len);
         for (messages) |message| {
@@ -177,13 +177,11 @@ pub const ChatOpenAI = struct {
             response.choices[0].message.content,
         );
     }
-    pub fn chatStream(_: *anyopaque, _: base.ChatMessage) ![]const u8 {}
 
-    pub fn llm(self: *ChatOpenAI) base.LLM {
+    pub fn llm(self: *const ChatOpenAI) base.LLM {
         return .{
             .ptr = self,
             .chatFn = chat,
-            .chatStreamFn = chatStream,
         };
     }
 };

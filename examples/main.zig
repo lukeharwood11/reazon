@@ -34,14 +34,14 @@ pub fn main() !void {
     const openai = try ChatOpenAI.init(
         allocator,
         .{},
-        .{},
+        .{ .model = "gpt-4o", .stop = &[_][]const u8{"observation: "} },
     );
     defer openai.deinit();
 
     var agent = try Agent.init(allocator, .{
         .system_prompt = "You are a helpful agent.",
         .tools = tools,
-        .llm = openai.llm(),
+        .llm = &openai.llm(),
     });
     defer agent.deinit();
 

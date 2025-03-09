@@ -13,15 +13,10 @@ pub const ChatMessage = struct {
 // TODO: add some concept of parameter overrides, so that stops can be overriden.
 
 pub const LLM = struct {
-    ptr: *anyopaque,
-    chatFn: *const fn (ptr: *anyopaque, messages: []const ChatMessage) anyerror!void,
-    chatStreamFn: *const fn (ptr: *anyopaque, messages: []const ChatMessage) anyerror!void,
+    ptr: *const anyopaque,
+    chatFn: *const fn (ptr: *const anyopaque, messages: []const ChatMessage) anyerror![]const u8,
 
-    pub fn chat(self: *const LLM, messages: []const ChatMessage) ![]const u8 {
+    pub fn chat(self: *const LLM, messages: []const ChatMessage) anyerror![]const u8 {
         return self.chatFn(self.ptr, messages);
-    }
-
-    pub fn chatStream(self: *const LLM, messages: []const ChatMessage) ![]const u8 {
-        return self.chatStream(self.ptr, messages);
     }
 };

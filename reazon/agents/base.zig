@@ -2,12 +2,13 @@ const std = @import("std");
 const tools = @import("../tools/base.zig");
 const proxz = @import("proxz");
 const logging = @import("../logging.zig");
-const LLM = @import("../llm/base.zig").LLM;
+const llm = @import("../llm/base.zig");
 
 const ToolManager = tools.ToolManager;
 const Tool = tools.Tool;
 const ArrayList = std.ArrayListUnmanaged;
-const ChatMessage = proxz.ChatMessage;
+const ChatMessage = llm.ChatMessage;
+const LLM = llm.LLM;
 
 // const reazon = @import("reazon");
 //
@@ -71,7 +72,7 @@ pub const InternalStep = struct {
 
         var lines = std.mem.tokenizeSequence(u8, slice, "\n");
         // parse thoughts
-        step.raw = slice;
+        step.raw = try allocator.dupe(u8, slice);
         if (lines.next()) |line| {
             if (line.len >= "thoughts: ".len) {
                 // TODO: do error handling
@@ -127,7 +128,7 @@ pub const Agent = struct {
 
     pub const AgentConfig = struct {
         tools: []const Tool,
-        llm: *LLM,
+        llm: *const LLM,
         system_prompt: []const u8 = "You are a helpful assistant.",
     };
 
@@ -176,23 +177,15 @@ pub const Agent = struct {
             });
             defer allocator.free(prompt);
 
-            const response = try self.openai.chat.completions.create(.{
-                .model = "gpt-4o",
-                .messages = &[_]ChatMessage{
-                    .{
-                        .role = "user",
-                        .content = prompt,
-                    },
-                },
-                .stop = &[_][]const u8{
-                    "observation: ",
-                },
-            });
-            defer response.deinit();
+            const response = try self.config.llm.chat(&[_]ChatMessage{.{
+                .role = "user",
+                .content = prompt,
+            }});
+            defer allocator.free(response);
 
             var step = try InternalStep.parse(
                 self.arena.allocator(),
-                response.choices[0].message.content,
+                response,
             );
 
             logging.logInfo("LLM thought: {s}", step.thoughts, logging.Colors.ok_green ++ logging.Colors.bold ++ logging.Colors.italic);
