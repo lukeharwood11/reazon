@@ -132,17 +132,6 @@ pub const ChatOpenAI = struct {
     pub fn chat(ptr: *const anyopaque, messages: []const base.ChatMessage) ![]const u8 {
         const self: *const ChatOpenAI = @ptrCast(@alignCast(ptr));
         const allocator = self.openai.allocator;
-        var request_messages = try ArrayList(proxz.ChatMessage).initCapacity(allocator, messages.len);
-        for (messages) |message| {
-            try request_messages.append(
-                allocator,
-                .{
-                    .role = message.role,
-                    .content = message.content,
-                },
-            );
-        }
-
         var chat_request: proxz.completions.ChatCompletionsRequest = undefined;
 
         // copy everything over that's applicable from the config
