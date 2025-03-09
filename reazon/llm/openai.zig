@@ -129,8 +129,7 @@ pub const ChatOpenAI = struct {
     const openai_chat_config_ti = @typeInfo(OpenAIChatConfig);
     const chat_request_ti = @typeInfo(proxz.completions.ChatCompletionsRequest);
 
-    pub fn chat(ptr: *const anyopaque, messages: []const base.ChatMessage) ![]const u8 {
-        const self: *const ChatOpenAI = @ptrCast(@alignCast(ptr));
+    pub fn chat(self: *const ChatOpenAI, messages: []const base.ChatMessage) ![]const u8 {
         const allocator = self.openai.allocator;
         var chat_request: proxz.completions.ChatCompletionsRequest = undefined;
 
@@ -168,9 +167,6 @@ pub const ChatOpenAI = struct {
     }
 
     pub fn llm(self: *const ChatOpenAI) base.LLM {
-        return .{
-            .ptr = self,
-            .chatFn = chat,
-        };
+        return base.LLM.init(self);
     }
 };
