@@ -153,7 +153,7 @@ pub const ChatOpenAI = struct {
         }
 
         // copy over messages
-        var arr = try ArrayList(base.ChatMessage).initCapacity(allocator, messages.len);
+        var arr = try ArrayList(proxz.ChatMessage).initCapacity(allocator, messages.len);
         defer arr.deinit(allocator);
 
         for (messages) |message| {
