@@ -6,6 +6,16 @@ const Tool = reazon.tools.Tool;
 const Agent = reazon.agents.Agent;
 const ChatOpenAI = reazon.llm.openai.ChatOpenAI;
 
+pub const std_options = std.Options{
+    .log_level = .debug, // this sets your app level log config
+    .log_scope_levels = &[_]std.log.ScopeLevel{
+        .{
+            .scope = .proxz,
+            .level = .err, // set to .debug, .warn, .info, or .err
+        },
+    },
+};
+
 pub fn main() !void {
     const DebugAllocator = std.heap.DebugAllocator(.{});
     var gpa: DebugAllocator = .init;
@@ -41,7 +51,7 @@ pub fn main() !void {
     var agent = try Agent.init(allocator, .{
         .system_prompt = "You are a helpful agent.",
         .tools = tools,
-        .llm = &openai.llm(),
+        .llm = openai.llm(),
     });
     defer agent.deinit();
 

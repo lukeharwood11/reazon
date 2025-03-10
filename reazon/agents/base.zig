@@ -128,7 +128,7 @@ pub const Agent = struct {
 
     pub const AgentConfig = struct {
         tools: []const Tool,
-        llm: *const LLM,
+        llm: LLM,
         system_prompt: []const u8 = "You are a helpful assistant.",
     };
 
