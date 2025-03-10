@@ -130,6 +130,8 @@ pub const Agent = struct {
         tools: []const Tool,
         llm: LLM,
         system_prompt: []const u8 = "You are a helpful assistant.",
+        /// The maximum number of thought/action/observation sets the agent will allow.
+        max_iterations: usize = 8,
     };
 
     pub fn init(allocator: std.mem.Allocator, config: AgentConfig) !Agent {
@@ -158,8 +160,7 @@ pub const Agent = struct {
         var internal_steps = try ArrayList(InternalStep).initCapacity(allocator, 2);
         defer internal_steps.deinit(allocator);
         var cnt: usize = 0;
-        // TODO: add config for max number of steps
-        for (0..4) |_| {
+        for (0..self.config.max_iterations) |_| {
             var step_string: []const u8 = "";
             for (internal_steps.items, 0..) |step, i| {
                 step_string = try std.fmt.allocPrint(self.arena.allocator(), "{s}{s}{s}", .{
