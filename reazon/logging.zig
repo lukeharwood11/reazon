@@ -12,8 +12,6 @@ pub const AgentLogLevel = enum {
     none,
 };
 
-// TODO: add some colors for pretty logging:)
-
 pub const Colors = struct {
     pub const header = "\x1b[95m";
     pub const ok_blue = "\x1b[94m";

@@ -5,6 +5,21 @@ const base = @import("base.zig");
 const ArrayList = std.ArrayListUnmanaged;
 
 pub const OpenAIChatConfig = struct {
+    /// Base URL OpenAI client will use, if null will try to pull from `OPENAI_BASE_URL` environment variable.
+    base_url: ?[]const u8 = null,
+
+    /// The api key to use, if null will try to pull from `OPENAI_API_KEY` environment variable.
+    api_key: ?[]const u8 = null,
+
+    /// The project id to use, if null will try to pull from `OPENAI_PROJECT_ID` environment variable.
+    project: ?[]const u8 = null,
+
+    /// The organization id to use, if null will try to pull from `OPENAI_ORG_ID` environment variable.
+    organization: ?[]const u8 = null,
+
+    /// The maximum number of retries the client will attempt.
+    max_retries: usize = 3,
+
     /// Required: ID of the model to use
     model: []const u8,
 
@@ -17,18 +32,10 @@ pub const OpenAIChatConfig = struct {
     /// Defaults to "medium" if left null,
     reasoning_effort: ?[]const u8 = null,
 
-    // Optional: Set of key-value pairs for storing additional information
-    // TODO: implement metadata parameter as StringHashMap
-    // metadata: StringHashMap([]const u8),
-
     /// Optional: Number between -2.0 and 2.0
     /// Positive values penalize new tokens based on their existing frequency
     /// Defaults to 0.0 if left null.
     frequency_penalty: ?f32 = null,
-
-    // Optional: Modify likelihood of specified tokens appearing in completion
-    // TODO: implement logit_bias parameter as IntegerHashMap
-    // logit_bias: IntegerHashMap(f32),
 
     /// Optional: Whether to return log probabilities of output tokens
     /// Defaults to false
@@ -53,22 +60,10 @@ pub const OpenAIChatConfig = struct {
     /// Defaults to ["text"]
     modalities: ?[][]const u8 = null,
 
-    // Optional: Configuration for Predicted Output
-    // TODO: implement prediction parameter as struct
-    // prediction: PredictionConfig,
-
-    // Optional: Parameters for audio output
-    // TODO: implement audio parameter as struct
-    // audio: AudioConfig,
-
     /// Optional: Number between -2.0 and 2.0
     /// Positive values penalize new tokens based on presence in text
     /// Defaults to 0.0 if left null
     presence_penalty: ?f32 = null,
-
-    // Optional: Format specification for model output
-    // TODO: implement response_format parameter as union
-    // response_format: ResponseFormat,
 
     /// Optional: Seed for deterministic sampling
     seed: ?i64 = null,
@@ -91,19 +86,6 @@ pub const OpenAIChatConfig = struct {
     /// Defaults to 1.0 if left null
     top_p: ?f32 = null,
 
-    // Optional: List of tools (functions) the model may call
-    // TODO: implement tools parameter as array of structs
-    // tools: []Tool,
-
-    // Optional: Controls which tool is called by the model
-    // TODO: implement tool_choice parameter as union
-    // tool_choice: ToolChoice,
-
-    // Optional: Enable parallel function calling during tool use
-    // Defaults to true
-    // TODO: implement parallel_tool_calls
-    // parallel_tool_calls: bool = true,
-
     /// Optional: Unique identifier for end-user
     user: ?[]const u8 = null,
 };
@@ -111,14 +93,22 @@ pub const OpenAIChatConfig = struct {
 /// A Chat Implementation for OpenAI models
 pub const ChatOpenAI = struct {
     openai: *proxz.OpenAI,
-    chat_config: OpenAIChatConfig,
+    config: OpenAIChatConfig,
 
     // TODO: merge OpenAIConfig and the OpenAIChatConfig
-    pub fn init(allocator: std.mem.Allocator, config: proxz.OpenAIConfig, chat_config: OpenAIChatConfig) !ChatOpenAI {
-        const openai = try proxz.OpenAI.init(allocator, config);
+    pub fn init(allocator: std.mem.Allocator, config: OpenAIChatConfig) !ChatOpenAI {
+        const openai_config: proxz.OpenAIConfig = .{
+            .api_key = config.api_key,
+            .project = config.project,
+            .base_url = config.base_url,
+            .organization = config.organization,
+            .max_retries = config.max_retries,
+        };
+
+        const openai = try proxz.OpenAI.init(allocator, openai_config);
         return .{
             .openai = openai,
-            .chat_config = chat_config,
+            .config = config,
         };
     }
 
@@ -133,7 +123,7 @@ pub const ChatOpenAI = struct {
         // copy everything over that's applicable from the config
         inline for (@typeInfo(OpenAIChatConfig).@"struct".fields) |field| {
             if (@hasField(proxz.completions.ChatCompletionsRequest, field.name)) {
-                @field(chat_request, field.name) = @field(self.chat_config, field.name);
+                @field(chat_request, field.name) = @field(self.config, field.name);
             }
         }
 
