@@ -199,7 +199,6 @@ pub const Agent = struct {
             logging.logInfo("{s}", output.content, logging.Colors.fail ++ logging.Colors.bold ++ logging.Colors.italic);
 
             step.observe(output.content);
-            logging.logInfo("{s}", step.thoughts, logging.Colors.ok_green ++ logging.Colors.bold ++ logging.Colors.italic);
             try internal_steps.append(allocator, step);
             if (output.exit) {
                 return output.content;

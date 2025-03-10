@@ -101,6 +101,7 @@ pub const ToolManager = struct {
                 .description = "The output to give to the user",
             },
         },
+        // TODO: max the output of a function return a Signal, which includes whether an error occurred.
         .toolFn = struct {
             pub fn toolFn(_: *const Tool, _: std.mem.Allocator, params: std.json.ObjectMap) ![]const u8 {
                 const output = params.get("text");
