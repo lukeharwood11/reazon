@@ -3,6 +3,7 @@ const proxz = @import("proxz");
 const base = @import("base.zig");
 
 const ArrayList = std.ArrayListUnmanaged;
+const LLM = base.LLM;
 
 pub const OpenAIChatConfig = struct {
     /// Base URL OpenAI client will use, if null will try to pull from `OPENAI_BASE_URL` environment variable.
@@ -153,7 +154,7 @@ pub const ChatOpenAI = struct {
         );
     }
 
-    pub fn llm(self: *const ChatOpenAI) base.LLM {
-        return base.LLM.init(self);
+    pub fn llm(self: *const ChatOpenAI) LLM {
+        return LLM.init(self);
     }
 };

@@ -88,8 +88,7 @@ pub const Tool = struct {
 pub const ToolManager = struct {
     // Note: refactor to use String type from zig-string or some equivalent (or make your own Luke:)
     // Maybe this should have a reference to the agent? And then the Tool has access to it's manager?
-    // TODO: future luke: does this need to be a pointer?
-    tools: *std.ArrayList(Tool),
+    tools: std.ArrayList(Tool),
     allocator: std.mem.Allocator,
 
     const return_tool: Tool = .{
@@ -115,8 +114,7 @@ pub const ToolManager = struct {
     };
 
     pub fn init(allocator: std.mem.Allocator, tools: []const Tool) !ToolManager {
-        const arr = try allocator.create(std.ArrayList(Tool));
-        arr.* = std.ArrayList(Tool).init(allocator);
+        var arr = std.ArrayList(Tool).init(allocator);
         // add all user defined tools
         try arr.appendSlice(tools);
         // allows the agent to exit and respond
@@ -129,7 +127,6 @@ pub const ToolManager = struct {
 
     pub fn deinit(self: *ToolManager) void {
         self.tools.deinit();
-        self.allocator.destroy(self.tools);
     }
 
     pub fn register(self: *ToolManager, tool: Tool) !void {
@@ -170,7 +167,6 @@ pub const ToolManager = struct {
         };
         // TODO: error catch
         for (self.tools.items) |tool| {
-            std.log.info("'{s}' <=> '{s}'", .{ tool.name, step.tool });
             if (std.mem.eql(u8, tool.name, step.tool)) {
                 const tool_output = tool.execute(allocator, parameters.object) catch {
                     return .{ .content = "Error when running tool." };
