@@ -126,15 +126,12 @@ pub const ChatOpenAI = struct {
         self.openai.deinit();
     }
 
-    const openai_chat_config_ti = @typeInfo(OpenAIChatConfig);
-    const chat_request_ti = @typeInfo(proxz.completions.ChatCompletionsRequest);
-
     pub fn chat(self: *const ChatOpenAI, messages: []const base.ChatMessage) ![]const u8 {
         const allocator = self.openai.allocator;
         var chat_request: proxz.completions.ChatCompletionsRequest = undefined;
 
         // copy everything over that's applicable from the config
-        inline for (openai_chat_config_ti.@"struct".fields) |field| {
+        inline for (@typeInfo(OpenAIChatConfig).@"struct".fields) |field| {
             if (@hasField(proxz.completions.ChatCompletionsRequest, field.name)) {
                 @field(chat_request, field.name) = @field(self.chat_config, field.name);
             }
