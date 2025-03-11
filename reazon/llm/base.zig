@@ -10,8 +10,6 @@ pub const ChatMessage = struct {
     content: []const u8,
 };
 
-// TODO: add some concept of parameter overrides, so that stops can be overriden.
-
 // Thank you openmymind.net/Zig-Interfaces/
 pub const LLM = struct {
     ptr: *const anyopaque,
