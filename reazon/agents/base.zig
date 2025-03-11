@@ -155,7 +155,7 @@ pub const Agent = struct {
         self.arena.child_allocator.destroy(self.arena);
     }
 
-    pub fn execute(self: *Agent, input: []const u8) ![]const u8 {
+    pub fn execute(self: *Agent, input: anytype) ![]const u8 {
         const allocator = self.arena.child_allocator;
         var internal_steps = try ArrayList(InternalStep).initCapacity(allocator, 2);
         defer internal_steps.deinit(allocator);
