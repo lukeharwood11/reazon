@@ -31,4 +31,9 @@ const ReactInstruction = struct {
         _ = input;
         _ = steps;
     }
+
+    pub fn parseOutput(self: *const ReactInstruction, slice: []const u8) !InternalStep {
+        _ = self;
+        _ = slice;
+    }
 };

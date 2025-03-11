@@ -29,8 +29,5 @@ pub const Instruction = struct {
     }
 
     // TODO: add parseOutput, which returns an InternalStep
-    pub fn parseOutput(self: *const Instruction, slice: []const u8) anyerror!InternalStep {
-        _ = self;
-        _ = slice;
-    }
+    pub fn parseOutput(self: *const Instruction, slice: []const u8) anyerror!InternalStep {}
 };
