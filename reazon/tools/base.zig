@@ -20,20 +20,38 @@ pub const Tool = struct {
         pub const default: Config = .{};
     };
 
-    pub fn fromStruct(comptime T: type) void {
-        _ = T;
-        // TODO: implement
-        // const tool = Tool.fromType(struct {
-        //      pub const description = "This is the description";
-        //      pub const params = &[_]Tool.Parameter{.{
-        //          .name = "test",
-        //          .dtype = .string,
-        //          .description = "something to describe",
-        //      }};
-        //      pub fn my_tool(_: std.mem.Allocator, params: std.json.ObjectMap) ![]const u8 {
-        //          return "this is the return";
-        //      }
-        // });
+    pub fn fromStruct(comptime T: type) Tool {
+        comptime var func_count = 0;
+        comptime var tool_name: []const u8 = undefined;
+        comptime var tool_description: ?[]const u8 = null;
+        comptime var tool_params: []const Tool.Parameter = &.{};
+        comptime var tool_fn: *const fn (self: *const Tool, allocator: std.mem.Allocator, params: std.json.ObjectMap) anyerror![]const u8 = undefined;
+        comptime var tool_config: Config = .default;
+        // grab the tool fn
+        const ti = @typeInfo(T);
+        inline for (ti.@"struct".decls) |decl| {
+            if (std.meta.hasMethod(T, decl.name)) {
+                // handle methods
+                func_count += 1;
+                tool_fn = @field(T, decl.name);
+                tool_name = decl.name;
+            } else if (std.mem.eql(u8, decl.name, "params")) {
+                // metadata.bodyType = @field(Handler, decl.name);
+                tool_params = @field(T, "params");
+            } else if (std.mem.eql(u8, decl.name, "description")) {
+                // metadata.tags = @field(Handler, decl.name);
+                tool_description = @field(T, "description");
+            } else if (std.mem.eql(u8, decl.name, "config")) {
+                tool_config = @field(T, "config");
+            }
+        }
+        return .{
+            .name = tool_name,
+            .description = tool_description,
+            .params = tool_params,
+            .toolFn = tool_fn,
+            .config = tool_config,
+        };
     }
 
     pub const Parameter = struct {
