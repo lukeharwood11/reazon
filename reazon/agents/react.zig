@@ -1,5 +1,6 @@
 const std = @import("std");
 const base = @import("base.zig");
+const instructions = @import("instructions.zig");
 
 const InternalStep = base.InternalStep;
 
@@ -26,14 +27,22 @@ const ReactInstruction = struct {
         \\{s}
     ;
 
-    pub fn formatPrompt(self: *const ReactInstruction, input: anytype, steps: []const InternalStep) ![]const u8 {
-        _ = self;
-        _ = input;
-        _ = steps;
+    pub fn formatPrompt(self: *const ReactInstruction, allocator: std.mem.Allocator, input: anytype, steps: []const InternalStep) ![]const u8 {
+        const step_string = instructions.formatSteps(allocator, steps);
+        // segfault?
+        defer allocator.free(step_string);
+        const p = try std.fmt.allocPrint(allocator, prompt, .{
+            self.config.system_prompt,
+            try self.tool_manager.describe(allocator), // arena allocator
+            input,
+            step_string,
+        });
+        defer allocator.free(p);
     }
 
-    pub fn parseOutput(self: *const ReactInstruction, slice: []const u8) !InternalStep {
+    pub fn parseOutput(self: *const ReactInstruction, allocator: std.mem.Allocator, slice: []const u8) !InternalStep {
         _ = self;
         _ = slice;
+        _ = allocator;
     }
 };

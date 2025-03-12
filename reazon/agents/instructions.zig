@@ -3,6 +3,32 @@ const base = @import("base.zig");
 
 const InternalStep = base.InternalStep;
 
+pub fn leakyFormatSteps(allocator: std.mem.Allocator, steps: []const InternalStep) []const u8 {
+    var step_string: []const u8 = "";
+    for (steps.items, 0..) |step, i| {
+        step_string = try std.fmt.allocPrint(allocator, "{s}{s}{s}", .{
+            step_string,
+            if (i == 0) "" else "\n",
+            try step.formatPrompt(allocator),
+        });
+    }
+    return step_string;
+}
+
+pub fn formatSteps(allocator: std.mem.Allocator, steps: []const InternalStep) []const u8 {
+    var step_string: []const u8 = "";
+    var arena = std.heap.ArenaAllocator.init(allocator);
+    defer arena.deinit();
+    for (steps.items, 0..) |step, i| {
+        step_string = try std.fmt.allocPrint(arena.allocator(), "{s}{s}{s}", .{
+            step_string,
+            if (i == 0) "" else "\n",
+            try step.formatPrompt(arena.allocator()),
+        });
+    }
+    return allocator.dupe(u8, step_string);
+}
+
 // Thank you openmymind.net/Zig-Interfaces/
 pub const Instruction = struct {
     // meta properties
@@ -28,7 +54,6 @@ pub const Instruction = struct {
         return self.formatPromptFn(self.ptr, input, steps);
     }
 
-    // TODO: add parseOutput, which returns an InternalStep
     pub fn parseOutput(self: *const Instruction, slice: []const u8) anyerror!InternalStep {
         _ = self;
         _ = slice;
