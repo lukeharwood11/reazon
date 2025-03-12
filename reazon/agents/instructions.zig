@@ -1,7 +1,9 @@
 const std = @import("std");
 const base = @import("base.zig");
+const tools = @import("../tools/base.zig");
 
 const InternalStep = base.InternalStep;
+const ToolManager = tools.ToolManager;
 
 pub fn leakyFormatSteps(allocator: std.mem.Allocator, steps: []const InternalStep) []const u8 {
     var step_string: []const u8 = "";
@@ -33,16 +35,16 @@ pub fn formatSteps(allocator: std.mem.Allocator, steps: []const InternalStep) []
 pub const Instruction = struct {
     // meta properties
     ptr: *const anyopaque,
-    formatPromptFn: *const fn (ptr: *const anyopaque, allocator: std.mem.Allocator, input: anytype, steps: []const InternalStep) anyerror![]const u8,
+    formatPromptFn: *const fn (ptr: *const anyopaque, allocator: std.mem.Allocator, input: anytype, steps: []const InternalStep, tool_manager: ToolManager) anyerror![]const u8,
     parseOutputFn: *const fn (ptr: *const anyopaque, allocator: std.mem.Allocator, slice: []const u8) anyerror![]InternalStep,
 
     pub fn init(ptr: anytype) Instruction {
         const T = @TypeOf(ptr);
         const ptr_info = @typeInfo(T);
         const fns = struct {
-            pub fn formatPrompt(pointer: *const anyopaque, allocator: std.mem.Allocator, input: anytype, steps: []const InternalStep) anyerror![]const u8 {
+            pub fn formatPrompt(pointer: *const anyopaque, allocator: std.mem.Allocator, input: anytype, steps: []const InternalStep, tool_manager: ToolManager) anyerror![]const u8 {
                 const self: T = @ptrCast(@alignCast(pointer));
-                return ptr_info.pointer.child.formatPrompt(self, allocator, input, steps);
+                return ptr_info.pointer.child.formatPrompt(self, allocator, input, steps, tool_manager);
             }
 
             pub fn parseOutput(pointer: *const anyopaque, allocator: std.mem.Allocator, slice: []const u8) anyerror![]InternalStep {
@@ -57,8 +59,8 @@ pub const Instruction = struct {
         };
     }
 
-    pub fn formatPrompt(self: *const Instruction, allocator: std.mem.Allocator, input: anytype, steps: []const InternalStep) anyerror![]const u8 {
-        return self.formatPromptFn(self.ptr, allocator, input, steps);
+    pub fn formatPrompt(self: *const Instruction, allocator: std.mem.Allocator, input: anytype, steps: []const InternalStep, tool_manager: ToolManager) anyerror![]const u8 {
+        return self.formatPromptFn(self.ptr, allocator, input, steps, tool_manager);
     }
 
     pub fn parseOutput(self: *const Instruction, allocator: std.mem.Allocator, slice: []const u8) anyerror!InternalStep {
