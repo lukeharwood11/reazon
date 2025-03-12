@@ -146,15 +146,18 @@ pub const ToolManager = struct {
     // should pass in an arena allocator
     pub fn describe(self: *const ToolManager, allocator: std.mem.Allocator) ![]const u8 {
         var tool_text: []const u8 = undefined;
+        var arena = std.heap.ArenaAllocator.init(allocator);
+        defer arena.deinit();
+        const alloc = arena.allocator();
         for (self.tools.items, 0..) |tool, i| {
-            const description = try tool.describe(allocator);
+            const description = try tool.describe(alloc);
             if (i != 0) {
-                tool_text = try std.fmt.allocPrint(allocator, "{s}, {s}", .{ tool_text, description });
+                tool_text = try std.fmt.allocPrint(alloc, "{s}, {s}", .{ tool_text, description });
             } else {
                 tool_text = description;
             }
         }
-        return tool_text;
+        return allocator.dupe(u8, tool_text);
     }
 
     pub fn execute(self: *const ToolManager, allocator: std.mem.Allocator, step: InternalStep) !ToolOutput {

@@ -86,4 +86,8 @@ const ReactInstruction = struct {
         }
         return step;
     }
+
+    pub fn instruction(self: *const ReactInstruction) instructions.Instruction {
+        return instructions.Instruction.init(self);
+    }
 };
