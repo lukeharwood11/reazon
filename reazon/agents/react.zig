@@ -40,9 +40,41 @@ const ReactInstruction = struct {
         defer allocator.free(p);
     }
 
-    pub fn parseOutput(self: *const ReactInstruction, allocator: std.mem.Allocator, slice: []const u8) !InternalStep {
-        _ = self;
-        _ = slice;
-        _ = allocator;
+    pub fn parseOutput(_: *const ReactInstruction, allocator: std.mem.Allocator, slice: []const u8) !InternalStep {
+        // split by lines
+        var step: InternalStep = undefined;
+        step.observation = null;
+
+        var lines = std.mem.tokenizeSequence(u8, slice, "\n");
+        // parse thoughts
+        step.raw = try allocator.dupe(u8, slice);
+        if (lines.next()) |line| {
+            if (line.len >= "thoughts: ".len) {
+                // TODO: do error handling
+                step.thoughts = try allocator.dupe(
+                    u8,
+                    std.mem.trim(u8, line["thoughts: ".len..], "\t "),
+                );
+            }
+        }
+        if (lines.next()) |line| {
+            if (line.len >= "tool: ".len) {
+                // TODO: do error handling
+                step.tool = try allocator.dupe(
+                    u8,
+                    std.mem.trim(u8, line["tool: ".len..], "\t "),
+                );
+            }
+        }
+        if (lines.next()) |line| {
+            if (line.len >= "parameters: ".len) {
+                // TODO do error handling
+                step.parameters = try allocator.dupe(
+                    u8,
+                    std.mem.trim(u8, line["parameters: ".len..], "\t "),
+                );
+            }
+        }
+        return step;
     }
 };
