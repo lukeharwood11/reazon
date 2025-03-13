@@ -4,6 +4,7 @@ const reazon = @import("reazon");
 
 const Tool = reazon.tools.Tool;
 const Agent = reazon.agents.Agent;
+const ReactAgentTemplate = reazon.agents.templates.ReactAgentTemplate;
 const ChatOpenAI = reazon.llm.openai.ChatOpenAI;
 
 pub const std_options = std.Options{
@@ -47,10 +48,13 @@ pub fn main() !void {
     );
     defer openai.deinit();
 
+    const rat: ReactAgentTemplate = .default;
+
     var agent = try Agent.init(allocator, .{
         .system_prompt = "You are a helpful agent.",
         .tools = tools,
         .llm = openai.llm(),
+        .template = rat.template(),
     });
     defer agent.deinit();
 

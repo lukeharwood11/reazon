@@ -3,11 +3,13 @@ const tools = @import("../tools/base.zig");
 const proxz = @import("proxz");
 const logging = @import("../logging.zig");
 const llm = @import("../llm/base.zig");
+pub const templates = @import("template.zig");
 
 const ToolManager = tools.ToolManager;
 const Tool = tools.Tool;
 const ArrayList = std.ArrayListUnmanaged;
 const ChatMessage = llm.ChatMessage;
+const AgentTemplate = templates.AgentTemplate;
 const LLM = llm.LLM;
 
 // const reazon = @import("reazon");
@@ -26,7 +28,7 @@ const TemplateInput = struct {
 const StepWriter = struct {};
 
 // const agent - reazon.Agent(llm, template)
-const DEFAULT_REACT_PROMPT =
+const default_react_prompt =
     \\{s}
     \\
     \\available tools: {s}
@@ -64,62 +66,6 @@ pub const InternalStep = struct {
     pub fn observe(self: *InternalStep, observation: []const u8) void {
         self.observation = observation;
     }
-
-    pub fn parse(allocator: std.mem.Allocator, slice: []const u8) !InternalStep {
-        // split by lines
-        var step: InternalStep = undefined;
-        step.observation = null;
-
-        var lines = std.mem.tokenizeSequence(u8, slice, "\n");
-        // parse thoughts
-        step.raw = try allocator.dupe(u8, slice);
-        if (lines.next()) |line| {
-            if (line.len >= "thoughts: ".len) {
-                // TODO: do error handling
-                step.thoughts = try allocator.dupe(
-                    u8,
-                    std.mem.trim(u8, line["thoughts: ".len..], "\t "),
-                );
-            }
-        }
-        if (lines.next()) |line| {
-            if (line.len >= "tool: ".len) {
-                // TODO: do error handling
-                step.tool = try allocator.dupe(
-                    u8,
-                    std.mem.trim(u8, line["tool: ".len..], "\t "),
-                );
-            }
-        }
-        if (lines.next()) |line| {
-            if (line.len >= "parameters: ".len) {
-                // TODO do error handling
-                step.parameters = try allocator.dupe(
-                    u8,
-                    std.mem.trim(u8, line["parameters: ".len..], "\t "),
-                );
-            }
-        }
-        // FIXME: if this doesn't get parsed correctly- this will segfault.
-        return step;
-    }
-
-    pub fn formatPrompt(self: InternalStep, allocator: std.mem.Allocator) ![]const u8 {
-        // FIXME: if the string can't be parsed correctly, this will print an invalid output.
-        // Switch to display `raw` if it wasn't parsed.
-        const FORMAT_STRING =
-            \\thoughts: {s}
-            \\tool: {s}
-            \\parameters: {s}
-            \\observation: {s}
-        ;
-        return try std.fmt.allocPrint(allocator, FORMAT_STRING, .{
-            self.thoughts,
-            self.tool,
-            self.parameters,
-            self.observation.?,
-        });
-    }
 };
 
 pub const Agent = struct {
@@ -130,6 +76,7 @@ pub const Agent = struct {
     pub const AgentConfig = struct {
         tools: []const Tool,
         llm: LLM,
+        template: AgentTemplate,
         system_prompt: []const u8 = "You are a helpful assistant.",
         /// The maximum number of thought/action/observation sets the agent will allow.
         max_iterations: usize = 8,
@@ -162,21 +109,12 @@ pub const Agent = struct {
         defer internal_steps.deinit(allocator);
         var cnt: usize = 0;
         for (0..self.config.max_iterations) |_| {
-            var step_string: []const u8 = "";
-            for (internal_steps.items, 0..) |step, i| {
-                step_string = try std.fmt.allocPrint(self.arena.allocator(), "{s}{s}{s}", .{
-                    step_string,
-                    if (i == 0) "" else "\n",
-                    try step.formatPrompt(self.arena.allocator()),
-                });
-            }
-
-            const prompt = try std.fmt.allocPrint(allocator, DEFAULT_REACT_PROMPT, .{
-                self.config.system_prompt,
-                try self.tool_manager.describe(self.arena.allocator()),
+            const prompt = try self.config.template.formatPrompt(
+                self.arena.allocator(),
                 input,
-                step_string,
-            });
+                internal_steps.items,
+                self.tool_manager,
+            );
             defer allocator.free(prompt);
 
             const response = try self.config.llm.chat(&[_]ChatMessage{.{
@@ -185,10 +123,19 @@ pub const Agent = struct {
             }});
             defer allocator.free(response);
 
-            var step = try InternalStep.parse(
-                self.arena.allocator(),
-                response,
-            );
+            var step = InternalStep{
+                .observation = "",
+                .parameters = "",
+                .raw = "",
+                .thoughts = "",
+                .tool = "",
+            };
+            // TODO: fix this with the template parser!!!
+
+            // var step = try InternalStep.parse(
+            //     self.arena.allocator(),
+            //     response,
+            // );
 
             logging.logInfo("LLM thought: {s}", step.thoughts, logging.Colors.ok_green ++ logging.Colors.bold ++ logging.Colors.italic);
             logging.logInfo("{s}", step.tool, logging.Colors.bold ++ logging.Colors.italic);

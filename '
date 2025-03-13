@@ -4,9 +4,8 @@ const templ = @import("template.zig");
 const tools = @import("../tools/base.zig");
 
 const InternalStep = base.InternalStep;
-const AgentTemplate = templ.AgentTemplate;
 
-pub const ReactAgentTemplate = struct {
+const ReactAgentTemplate = struct {
     system_prompt: []const u8,
 
     const prompt =
@@ -31,10 +30,6 @@ pub const ReactAgentTemplate = struct {
         \\{s}
     ;
 
-    pub const default: ReactAgentTemplate = .{
-        .system_prompt = "You are a helpful agent.",
-    };
-
     fn formatInternalStep(step: InternalStep, allocator: std.mem.Allocator) ![]const u8 {
         // FIXME: if the string can't be parsed correctly, this will print an invalid output.
         // Switch to display `raw` if it wasn't parsed.
@@ -52,13 +47,13 @@ pub const ReactAgentTemplate = struct {
         });
     }
 
-    pub fn formatPrompt(self: *const ReactAgentTemplate, allocator: std.mem.Allocator, input: []const u8, steps: []const InternalStep, tool_manager: tools.ToolManager) ![]const u8 {
+    pub fn formatPrompt(self: *const ReactAgentTemplate, allocator: std.mem.Allocator, input: anytype, steps: []const InternalStep, tool_manager: tools.ToolManager) ![]const u8 {
         // For this AgentTemplate set, input should be a string (but doesn't have to be for other implementations)
         // Does this work?
         if (@TypeOf(input) != []const u8) {
             @compileError("Input is of type '" ++ @typeName(@TypeOf(input)) ++ "' but should be of type '[]const u8'.");
         }
-        const step_string = try templ.formatSteps(allocator, steps, formatInternalStep);
+        const step_string = templ.formatSteps(allocator, steps, formatInternalStep);
         const p = try std.fmt.allocPrint(allocator, prompt, .{
             self.system_prompt,
             try tool_manager.describe(allocator), // arena allocator, how can I fix this?
@@ -106,7 +101,7 @@ pub const ReactAgentTemplate = struct {
         return step;
     }
 
-    pub fn template(self: *const ReactAgentTemplate) AgentTemplate {
-        return AgentTemplate.init(self);
+    pub fn template(self: *const ReactAgentTemplate) templ.AgentTemplate {
+        return templ.AgentTemplate.init(self);
     }
 };
