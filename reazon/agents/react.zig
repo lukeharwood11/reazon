@@ -1,11 +1,11 @@
 const std = @import("std");
 const base = @import("base.zig");
-const instructions = @import("instructions.zig");
+const templ = @import("template.zig");
 const tools = @import("../tools/base.zig");
 
 const InternalStep = base.InternalStep;
 
-const ReactInstruction = struct {
+const ReactAgentTemplate = struct {
     system_prompt: []const u8,
 
     const prompt =
@@ -30,13 +30,13 @@ const ReactInstruction = struct {
         \\{s}
     ;
 
-    pub fn formatPrompt(self: *const ReactInstruction, allocator: std.mem.Allocator, input: anytype, steps: []const InternalStep, tool_manager: tools.ToolManager) ![]const u8 {
-        // For this Instruction set, input should be a string (but doesn't have to be for other implementations)
+    pub fn formatPrompt(self: *const ReactAgentTemplate, allocator: std.mem.Allocator, input: anytype, steps: []const InternalStep, tool_manager: tools.ToolManager) ![]const u8 {
+        // For this AgentTemplate set, input should be a string (but doesn't have to be for other implementations)
         // Does this work?
         if (@TypeOf(input) != []const u8) {
             @compileError("Input is of type '" ++ @typeName(@TypeOf(input)) ++ "' but should be of type '[]const u8'.");
         }
-        const step_string = instructions.formatSteps(allocator, steps);
+        const step_string = templ.formatSteps(allocator, steps);
         // segfault?
         defer allocator.free(step_string);
         const p = try std.fmt.allocPrint(allocator, prompt, .{
@@ -49,7 +49,7 @@ const ReactInstruction = struct {
         // TODO: handle this
     }
 
-    pub fn parseOutput(_: *const ReactInstruction, allocator: std.mem.Allocator, slice: []const u8) !InternalStep {
+    pub fn parseOutput(_: *const ReactAgentTemplate, allocator: std.mem.Allocator, slice: []const u8) !InternalStep {
         // split by lines
         var step: InternalStep = undefined;
         step.observation = null;
@@ -87,7 +87,7 @@ const ReactInstruction = struct {
         return step;
     }
 
-    pub fn instruction(self: *const ReactInstruction) instructions.Instruction {
-        return instructions.Instruction.init(self);
+    pub fn template(self: *const ReactAgentTemplate) templ.AgentTemplate {
+        return templ.AgentTemplate.init(self);
     }
 };

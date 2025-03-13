@@ -32,13 +32,13 @@ pub fn formatSteps(allocator: std.mem.Allocator, steps: []const InternalStep) []
 }
 
 // Thank you openmymind.net/Zig-Interfaces/
-pub const Instruction = struct {
+pub const AgentTemplate = struct {
     // meta properties
     ptr: *const anyopaque,
     formatPromptFn: *const fn (ptr: *const anyopaque, allocator: std.mem.Allocator, input: anytype, steps: []const InternalStep, tool_manager: ToolManager) anyerror![]const u8,
     parseOutputFn: *const fn (ptr: *const anyopaque, allocator: std.mem.Allocator, slice: []const u8) anyerror![]InternalStep,
 
-    pub fn init(ptr: anytype) Instruction {
+    pub fn init(ptr: anytype) AgentTemplate {
         const T = @TypeOf(ptr);
         const ptr_info = @typeInfo(T);
         const fns = struct {
@@ -59,11 +59,11 @@ pub const Instruction = struct {
         };
     }
 
-    pub fn formatPrompt(self: *const Instruction, allocator: std.mem.Allocator, input: anytype, steps: []const InternalStep, tool_manager: ToolManager) anyerror![]const u8 {
+    pub fn formatPrompt(self: *const AgentTemplate, allocator: std.mem.Allocator, input: anytype, steps: []const InternalStep, tool_manager: ToolManager) anyerror![]const u8 {
         return self.formatPromptFn(self.ptr, allocator, input, steps, tool_manager);
     }
 
-    pub fn parseOutput(self: *const Instruction, allocator: std.mem.Allocator, slice: []const u8) anyerror!InternalStep {
+    pub fn parseOutput(self: *const AgentTemplate, allocator: std.mem.Allocator, slice: []const u8) anyerror!InternalStep {
         return self.parseOutputFn(self.ptr, allocator, slice);
     }
 };
