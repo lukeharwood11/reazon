@@ -123,19 +123,12 @@ pub const Agent = struct {
             }});
             defer allocator.free(response);
 
-            var step = InternalStep{
-                .observation = "",
-                .parameters = "",
-                .raw = "",
-                .thoughts = "",
-                .tool = "",
-            };
             // TODO: fix this with the template parser!!!
 
-            // var step = try InternalStep.parse(
-            //     self.arena.allocator(),
-            //     response,
-            // );
+            var step = try self.config.template.parseOutput(
+                allocator,
+                response,
+            );
 
             logging.logInfo("LLM thought: {s}", step.thoughts, logging.Colors.ok_green ++ logging.Colors.bold ++ logging.Colors.italic);
             logging.logInfo("{s}", step.tool, logging.Colors.bold ++ logging.Colors.italic);
