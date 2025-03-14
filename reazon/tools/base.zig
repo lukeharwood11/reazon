@@ -36,12 +36,11 @@ pub const Tool = struct {
                 func_count += 1;
                 tool_fn = @field(T, decl.name);
                 tool_name = decl.name;
-            } else if (comptime std.mem.eql(u8, decl.name, "params")) {
-                // metadata.bodyType = @field(Handler, decl.name);
-                tool_params = @field(T, "params");
-            } else if (comptime std.mem.eql(u8, decl.name, "description")) {
+            } else if (comptime std.mem.eql(u8, decl.name, "params") or std.mem.eql(u8, decl.name, "parameters")) {
+                tool_params = @field(T, decl.name);
+            } else if (comptime std.mem.eql(u8, decl.name, "description") or std.mem.eql(u8, decl.name, "desc")) {
                 // metadata.tags = @field(Handler, decl.name);
-                tool_description = @field(T, "description");
+                tool_description = @field(T, decl.name);
             } else if (comptime std.mem.eql(u8, decl.name, "config")) {
                 tool_config = @field(T, "config");
             }
