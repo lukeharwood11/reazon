@@ -115,7 +115,6 @@ pub const Agent = struct {
                 internal_steps.items,
                 self.tool_manager,
             );
-            defer allocator.free(prompt);
 
             const response = try self.config.llm.chat(&[_]ChatMessage{.{
                 .role = "user",
@@ -123,10 +122,8 @@ pub const Agent = struct {
             }});
             defer allocator.free(response);
 
-            // TODO: fix this with the template parser!!!
-
             var step = try self.config.template.parseOutput(
-                allocator,
+                self.arena.allocator(),
                 response,
             );
 
