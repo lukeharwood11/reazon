@@ -44,7 +44,7 @@ pub fn main() !void {
 
     const openai = try ChatOpenAI.init(
         allocator,
-        .{ .model = "gpt-4o", .stop = &[_][]const u8{"observation: "} },
+        .{ .model = "gpt-4o-mini", .stop = &[_][]const u8{"observation: "} },
     );
     defer openai.deinit();
 

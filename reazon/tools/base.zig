@@ -85,7 +85,7 @@ pub const Tool = struct {
                 arg_text = description;
             }
         }
-        const tool_text = try std.fmt.allocPrint(allocator, "{s}({s})", .{
+        const tool_text = try std.fmt.allocPrint(allocator, "{{{s} - parameters: {s}}}", .{
             self.name,
             arg_text,
         });
