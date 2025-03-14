@@ -12,6 +12,7 @@ pub const Tool = struct {
     description: ?[]const u8 = null,
     params: []const Parameter = &.{},
     // change second parameter
+    // TODO: refactor output to not be a string, but an object that contains other metadata
     toolFn: *const fn (self: *const Tool, allocator: std.mem.Allocator, params: std.json.ObjectMap) anyerror![]const u8,
     config: Config = .default,
 
@@ -35,15 +36,18 @@ pub const Tool = struct {
                 func_count += 1;
                 tool_fn = @field(T, decl.name);
                 tool_name = decl.name;
-            } else if (std.mem.eql(u8, decl.name, "params")) {
+            } else if (comptime std.mem.eql(u8, decl.name, "params")) {
                 // metadata.bodyType = @field(Handler, decl.name);
                 tool_params = @field(T, "params");
-            } else if (std.mem.eql(u8, decl.name, "description")) {
+            } else if (comptime std.mem.eql(u8, decl.name, "description")) {
                 // metadata.tags = @field(Handler, decl.name);
                 tool_description = @field(T, "description");
-            } else if (std.mem.eql(u8, decl.name, "config")) {
+            } else if (comptime std.mem.eql(u8, decl.name, "config")) {
                 tool_config = @field(T, "config");
             }
+        }
+        if (func_count == 0) {
+            @compileError("Could not find a public function in the tool struct.");
         }
         return .{
             .name = tool_name,
@@ -76,20 +80,27 @@ pub const Tool = struct {
 
     // should pass in an arena allocator
     pub fn describe(self: *const Tool, allocator: std.mem.Allocator) ![]const u8 {
-        var arg_text: []const u8 = undefined;
-        for (self.params, 0..) |arg, i| {
-            const description = try arg.describe(allocator);
-            if (i != 0) {
-                arg_text = try std.fmt.allocPrint(allocator, "{s}, {s}", .{ arg_text, description });
-            } else {
-                arg_text = description;
+        if (self.params.len > 0) {
+            var arg_text: []const u8 = "";
+            for (self.params, 0..) |arg, i| {
+                const description = try arg.describe(allocator);
+                if (i != 0) {
+                    arg_text = try std.fmt.allocPrint(allocator, "{s}, {s}", .{ arg_text, description });
+                } else {
+                    arg_text = description;
+                }
             }
+            const tool_text = try std.fmt.allocPrint(allocator, "{{{s} - parameters: {s}}}", .{
+                self.name,
+                arg_text,
+            });
+            return tool_text;
+        } else {
+            const tool_text = try std.fmt.allocPrint(allocator, "{{{s} - parameters: None }}", .{
+                self.name,
+            });
+            return tool_text;
         }
-        const tool_text = try std.fmt.allocPrint(allocator, "{{{s} - parameters: {s}}}", .{
-            self.name,
-            arg_text,
-        });
-        return tool_text;
     }
 
     /// This is a runtime function, since it allows tools to be created dynamically

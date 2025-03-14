@@ -23,20 +23,32 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    const weather_tool: Tool = .{
-        .name = "get_weather",
-        .description = "Get's weather for the given city",
-        .params = &[_]Tool.Parameter{.{
+    // const weather_tool: Tool = .{
+    //     .name = "get_weather",
+    //     .description = "Get's weather for the given city",
+    //     .params = &[_]Tool.Parameter{.{
+    //         .name = "city",
+    //         .dtype = .string,
+    //         .description = "The city to search",
+    //     }},
+    //     .toolFn = struct {
+    //         pub fn func(_: *const Tool, _: std.mem.Allocator, _: std.json.ObjectMap) ![]const u8 {
+    //             return "53 and sunny - low chance of rain";
+    //         }
+    //     }.func,
+    // };
+
+    const weather_tool = Tool.fromStruct(struct {
+        pub const params = &[_]Tool.Parameter{.{
             .name = "city",
             .dtype = .string,
             .description = "The city to search",
-        }},
-        .toolFn = struct {
-            pub fn func(_: *const Tool, _: std.mem.Allocator, _: std.json.ObjectMap) ![]const u8 {
-                return "53 and sunny - low chance of rain";
-            }
-        }.func,
-    };
+        }};
+        pub const description = "Get's weather for the given city";
+        pub fn get_weather(_: *const Tool, _: std.mem.Allocator, _: std.json.ObjectMap) ![]const u8 {
+            return "53 and sunny - low chance of rain";
+        }
+    });
 
     const tools = &[_]Tool{
         weather_tool,
