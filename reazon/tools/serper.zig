@@ -17,6 +17,7 @@ pub const SerperConfig = struct {
 pub const SerperTool = struct {
     arena: *std.heap.ArenaAllocator,
     headers: []const std.http.Header,
+    config: SerperConfig,
 
     pub fn init(allocator: std.mem.Allocator, config: SerperConfig) SerperClientError!SerperTool {
         const arena = allocator.create(std.heap.ArenaAllocator) catch {
@@ -54,6 +55,7 @@ pub const SerperTool = struct {
         return .{
             .arena = arena,
             .headers = headers,
+            .config = config,
         };
     }
 
@@ -68,14 +70,14 @@ pub const SerperTool = struct {
         defer client.deinit();
         var backoff: f32 = initial_retry_delay;
 
-        const response = ArrayList(u8);
+        var response = std.ArrayList(u8).init(allocator);
         defer response.deinit();
 
-        for (0..self.max_retries + 1) |attempt| {
+        for (0..self.config.max_retries + 1) |attempt| {
             const res = try client.fetch(.{
                 .server_header_buffer = server_header_buffer,
                 .response_storage = .{
-                    .dynamic = response,
+                    .dynamic = &response,
                 },
                 .location = .{ .uri = uri },
                 .method = .POST,
@@ -88,9 +90,9 @@ pub const SerperTool = struct {
             const status_int = @intFromEnum(status);
             log.info("POST - https://google.serper.dev/search - {d} {s}", .{ status_int, status.phrase() orelse "Unknown" });
             if (status_int < 200 or status_int >= 300) {
-                if (attempt != self.max_retries and @intFromEnum(status) >= 429) {
+                if (attempt != self.config.max_retries and @intFromEnum(status) >= 429) {
                     // retry on 429, 500, and 503
-                    log.info("Retrying ({d}/{d}) after {d} seconds.", .{ attempt + 1, self.max_retries, backoff });
+                    log.info("Retrying ({d}/{d}) after {d} seconds.", .{ attempt + 1, self.config.max_retries, backoff });
                     std.time.sleep(@as(u64, @intFromFloat(backoff * std.time.ns_per_s)));
                     backoff = if (backoff * 2 <= max_retry_delay) backoff * 2 else max_retry_delay;
                 } else {
@@ -120,11 +122,19 @@ pub const SerperTool = struct {
     }
 
     pub fn tool(self: *const SerperTool) Tool {
-        return .{ .name = "web_search", .description = "Useful for when you need to search the web", .params = &.{}, .toolFn = struct {
+        const temp = struct {
+            var this: *const SerperTool = undefined;
             pub fn func(t: *const Tool, allocator: std.mem.Allocator, params: std.json.ObjectMap) ![]const u8 {
-                return search(self, t, allocator, params);
+                return search(this, t, allocator, params);
             }
-        }.func };
+        };
+        temp.this = self;
+        return .{
+            .name = "web_search",
+            .description = "Useful for when you need to search the web",
+            .params = &.{},
+            .toolFn = temp.func,
+        };
     }
 
     pub fn deinit(self: *const SerperTool) void {
