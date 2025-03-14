@@ -42,13 +42,16 @@ pub fn main() !void {
         weather_tool,
     };
 
+    const rat: ReactAgentTemplate = .default;
+
     const openai = try ChatOpenAI.init(
         allocator,
-        .{ .model = "gpt-4o-mini", .stop = &[_][]const u8{"observation: "} },
+        .{
+            .model = "gpt-4o-mini",
+            .stop = ReactAgentTemplate.stop,
+        },
     );
     defer openai.deinit();
-
-    const rat: ReactAgentTemplate = .default;
 
     var agent = try Agent.init(allocator, .{
         .system_prompt = "You are a helpful agent.",

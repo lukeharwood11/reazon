@@ -40,6 +40,7 @@ pub fn formatSteps(allocator: std.mem.Allocator, steps: []const InternalStep, fo
 pub const AgentTemplate = struct {
     // meta properties
     ptr: *const anyopaque,
+
     formatPromptFn: *const fn (ptr: *const anyopaque, allocator: std.mem.Allocator, input: []const u8, steps: []const InternalStep, tool_manager: ToolManager) anyerror![]const u8,
     parseOutputFn: *const fn (ptr: *const anyopaque, allocator: std.mem.Allocator, slice: []const u8) anyerror!InternalStep,
 

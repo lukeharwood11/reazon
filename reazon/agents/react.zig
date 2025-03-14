@@ -9,6 +9,8 @@ const AgentTemplate = templ.AgentTemplate;
 pub const ReactAgentTemplate = struct {
     system_prompt: []const u8,
 
+    pub const stop = &[_][]const u8{"observation: "};
+
     const prompt =
         \\{s}
         \\

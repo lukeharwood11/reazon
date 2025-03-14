@@ -89,6 +89,7 @@ pub const Agent = struct {
         errdefer arena.deinit();
 
         const manager = try ToolManager.init(allocator, config.tools);
+
         return .{
             .config = config,
             .arena = arena,
@@ -99,7 +100,6 @@ pub const Agent = struct {
     pub fn deinit(self: *Agent) void {
         self.tool_manager.deinit();
         self.arena.deinit();
-
         self.arena.child_allocator.destroy(self.arena);
     }
 
