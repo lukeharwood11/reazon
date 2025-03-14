@@ -43,10 +43,14 @@ pub const Tool = struct {
                 tool_description = @field(T, decl.name);
             } else if (comptime std.mem.eql(u8, decl.name, "config")) {
                 tool_config = @field(T, "config");
+            } else {
+                @compileError("Field name '" ++ decl.name ++ "' not recognized. Valid field names are 'params'/'parameters', 'desc'/'description', 'config' and a single public function with any name.");
             }
         }
         if (func_count == 0) {
             @compileError("Could not find a public function in the tool struct.");
+        } else if (func_count > 1) {
+            @compileError("Found more than one public function. Please only expose one.");
         }
         return .{
             .name = tool_name,

@@ -44,7 +44,8 @@ pub fn main() !void {
             .dtype = .string,
             .description = "The city to search",
         }};
-        pub const description = "Get's weather for the given city";
+        pub const descriptiodfn = "Get's weather for the given city";
+        // the name is used as the name of the function
         pub fn get_weather(_: *const Tool, _: std.mem.Allocator, _: std.json.ObjectMap) ![]const u8 {
             return "53 and sunny - low chance of rain";
         }
