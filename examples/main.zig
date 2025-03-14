@@ -79,6 +79,6 @@ pub fn main() !void {
     });
     defer agent.deinit();
 
-    const response = try agent.execute("What is the weather in new berlin?");
+    const response = try agent.execute("Check the internet for news.");
     std.log.info("\"{s}\"", .{response});
 }

@@ -60,6 +60,7 @@ pub const SerperTool = struct {
     }
 
     fn search(self: *const SerperTool, _: *const Tool, allocator: std.mem.Allocator, _: std.json.ObjectMap) ![]const u8 {
+        // FIXME: we're panicking somewhere in here...
         const uri = try std.Uri.parse("https://google.serper.dev/search");
 
         const server_header_buffer = try allocator.alloc(u8, 8 * 1024 * 4);
@@ -122,6 +123,8 @@ pub const SerperTool = struct {
     }
 
     pub fn tool(self: *const SerperTool) Tool {
+        // FIXME: the temp struct is getting dropped, leading to a panick.
+        // At least something here is the issue.
         const temp = struct {
             var this: *const SerperTool = undefined;
             pub fn func(t: *const Tool, allocator: std.mem.Allocator, params: std.json.ObjectMap) ![]const u8 {
