@@ -118,6 +118,8 @@ pub const Agent = struct {
             logging.logInfo("LLM thought: {s}", step.thoughts, logging.Colors.ok_green ++ logging.Colors.bold ++ logging.Colors.italic);
             logging.logInfo("{s}", step.tool, logging.Colors.bold ++ logging.Colors.italic);
 
+            // TODO: luke build this:
+            // there should be an arena allocator for each tool call so all memory used in that function is freed.
             const output = try self.tool_manager.execute(
                 self.arena.allocator(),
                 step,

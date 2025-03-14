@@ -6,6 +6,7 @@ const Tool = reazon.tools.Tool;
 const Agent = reazon.agents.Agent;
 const ReactAgentTemplate = reazon.agents.templates.ReactAgentTemplate;
 const ChatOpenAI = reazon.llm.openai.ChatOpenAI;
+const SerperTool = reazon.tools.SerperTool;
 
 pub const std_options = std.Options{
     .log_level = .debug, // this sets your app level log config
@@ -51,8 +52,12 @@ pub fn main() !void {
         }
     });
 
+    const serper = try SerperTool.init(allocator, .{});
+    defer serper.deinit();
+
     const tools = &[_]Tool{
         weather_tool,
+        serper.tool(),
     };
 
     const rat: ReactAgentTemplate = .default;

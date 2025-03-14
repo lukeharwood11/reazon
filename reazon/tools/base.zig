@@ -1,6 +1,8 @@
 const std = @import("std");
 const agents = @import("../agents/base.zig");
 
+pub const SerperTool = @import("serper.zig").SerperTool;
+
 const InternalStep = agents.InternalStep;
 
 // Note:
