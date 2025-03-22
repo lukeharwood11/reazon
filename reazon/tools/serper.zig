@@ -8,6 +8,78 @@ const initial_retry_delay = 0.5;
 const max_retry_delay = 8;
 const ArrayList = std.ArrayListUnmanaged;
 
+pub const SerperResponse = struct {
+    searchParameters: SearchParameters,
+    knowledgeGraph: ?KnowledgeGraph = null,
+    organic: []OrganicResult,
+    peopleAlsoAsk: ?[]PeopleAlsoAsk = null,
+    relatedSearches: []RelatedSearch,
+    places: ?[]Place = null,
+    credits: ?u32 = null,
+};
+
+pub const SearchParameters = struct {
+    q: []const u8,
+    gl: ?[]const u8 = null,
+    hl: ?[]const u8 = null,
+    autocorrect: ?bool = null,
+    page: ?u32 = null,
+    // For responses using a different search engine, "engine" is optional.
+    engine: ?[]const u8 = null,
+    type: []const u8,
+};
+
+pub const KnowledgeGraph = struct {
+    title: []const u8,
+    // Using the field name "type" is allowed here as a struct member.
+    type: []const u8,
+    website: []const u8,
+    imageUrl: []const u8,
+    description: []const u8,
+    descriptionSource: []const u8,
+    descriptionLink: []const u8,
+    // Attributes is a hash map represented as a std.json.Value.
+    attributes: std.json.Value,
+};
+
+pub const OrganicResult = struct {
+    title: []const u8,
+    link: []const u8,
+    snippet: []const u8,
+    position: u32,
+    // Sitelinks are optional.
+    sitelinks: ?[]Sitelink = null,
+    // Attributes are optional and represented as a std.json.Value.
+    attributes: ?std.json.Value = null,
+    // Date is optional.
+    date: ?[]const u8 = null,
+};
+
+pub const Sitelink = struct {
+    title: []const u8,
+    link: []const u8,
+};
+
+pub const PeopleAlsoAsk = struct {
+    question: []const u8,
+    snippet: []const u8,
+    title: []const u8,
+    link: []const u8,
+};
+
+pub const RelatedSearch = struct {
+    query: []const u8,
+};
+
+pub const Place = struct {
+    title: []const u8,
+    address: []const u8,
+    // Ratings are represented as floating-point values.
+    rating: f64,
+    ratingCount: u32,
+    cid: []const u8,
+};
+
 const log = std.log.scoped(.reazon);
 
 pub const SerperConfig = struct {
@@ -42,16 +114,21 @@ pub const SerperTool = struct {
             return SerperClientError.APIKeyNotSet;
         };
 
-        const headers: []const std.http.Header = &[_]std.http.Header{
-            .{
-                .name = "X-API-KEY",
-                .value = api_key,
-            },
-            .{
-                .name = "Content-Type",
-                .value = "application/json",
-            },
+        std.debug.print("SERPER_API_KEY: {s}\n", .{api_key});
+
+        const headers = arena.allocator().alloc(std.http.Header, 2) catch {
+            return SerperClientError.MemoryError;
         };
+
+        headers[0] = .{
+            .name = "X-API-KEY",
+            .value = api_key,
+        };
+        headers[1] = .{
+            .name = "Content-Type",
+            .value = "application/json",
+        };
+
         return .{
             .arena = arena,
             .headers = headers,
@@ -60,7 +137,6 @@ pub const SerperTool = struct {
     }
 
     fn search(self: *const SerperTool, _: *const Tool, allocator: std.mem.Allocator, _: std.json.ObjectMap) ![]const u8 {
-        // FIXME: we're panicking somewhere in here...
         const uri = try std.Uri.parse("https://google.serper.dev/search");
 
         const server_header_buffer = try allocator.alloc(u8, 8 * 1024 * 4);
@@ -74,6 +150,17 @@ pub const SerperTool = struct {
         var response = std.ArrayList(u8).init(allocator);
         defer response.deinit();
 
+        std.debug.print("About to send request.\n", .{});
+
+        const body = try std.json.stringifyAlloc(
+            allocator,
+            .{
+                .q = "apple inc",
+            },
+            .{},
+        );
+        defer allocator.free(body);
+
         for (0..self.config.max_retries + 1) |attempt| {
             const res = try client.fetch(.{
                 .server_header_buffer = server_header_buffer,
@@ -82,9 +169,14 @@ pub const SerperTool = struct {
                 },
                 .location = .{ .uri = uri },
                 .method = .POST,
-                .payload = "{{ \"q\": \"apple inc\"}}",
-                .privileged_headers = self.headers,
+                .payload = body,
+                .extra_headers = self.headers,
             });
+
+            // std.debug.print("BODY: {s}\n", .{response.items});
+            // std.debug.print("HEADERS: {s}\n", .{server_header_buffer});
+
+            std.debug.print("Sent request...\n", .{});
 
             const status = res.status;
 
@@ -96,17 +188,8 @@ pub const SerperTool = struct {
                     log.info("Retrying ({d}/{d}) after {d} seconds.", .{ attempt + 1, self.config.max_retries, backoff });
                     std.time.sleep(@as(u64, @intFromFloat(backoff * std.time.ns_per_s)));
                     backoff = if (backoff * 2 <= max_retry_delay) backoff * 2 else max_retry_delay;
-                } else {
-                    // const err = json.deserializeStructWithArena(APIErrorResponse, allocator, body) catch {
-                    //     log.err("{s}", .{body});
-                    //     // if we can't parse the error, it was a bad request.
-                    //     return OpenAIError.BadRequest;
-                    // };
-                    // defer err.deinit();
-                    // log.info("{s} ({s}): {s}", .{ err.@"error".type, err.@"error".code orelse "None", err.@"error".message });
-                    // return getErrorFromStatus(status);
                 }
-                return "You got no results...";
+                return "Error from API.";
             } else {
                 // if (ResponseType) |T| {
                 //     const response: T = try json.deserializeStructWithArena(T, allocator, body);
@@ -114,8 +197,26 @@ pub const SerperTool = struct {
                 // } else {
                 //     return;
                 // }
-                log.info("{s}", .{response.items});
-                return "This worked!";
+                const response_body = try std.json.parseFromSliceLeaky(SerperResponse, allocator, response.items, .{
+                    .ignore_unknown_fields = true,
+                });
+                if (response_body.knowledgeGraph) |graph| {
+                    return graph.description;
+                } else {}
+                std.debug.print("Found {d} results.\n", .{response_body.organic.len});
+
+                var summary: []const u8 = "";
+                for (response_body.organic, 0..) |result, i| {
+                    if (i == 3) break;
+                    summary = try std.fmt.allocPrint(allocator, "{s}===Title: {s}\nLink:{s}\n{s}\n==={s}", .{
+                        summary,
+                        result.title,
+                        result.link,
+                        result.snippet,
+                        if (i == 2) "" else "\n",
+                    });
+                }
+                return summary;
             }
         }
         // max_retries must be >= 0 (since it's usize) and loop condition is 0..max_retries+1
@@ -123,8 +224,6 @@ pub const SerperTool = struct {
     }
 
     pub fn tool(self: *const SerperTool) Tool {
-        // FIXME: the temp struct is getting dropped, leading to a panick.
-        // At least something here is the issue.
         const temp = struct {
             var this: *const SerperTool = undefined;
             pub fn func(t: *const Tool, allocator: std.mem.Allocator, params: std.json.ObjectMap) ![]const u8 {
