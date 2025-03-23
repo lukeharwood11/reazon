@@ -79,6 +79,13 @@ pub fn main() !void {
     });
     defer agent.deinit();
 
-    const response = try agent.execute("What is the best OpenAI client package for zig?");
-    std.log.info("\"{s}\"", .{response});
+    var iter = std.process.args();
+
+    _ = iter.next();
+    const opt = iter.next();
+
+    if (opt) |q| {
+        const response = try agent.execute(q);
+        std.log.info("\"{s}\"", .{response});
+    }
 }

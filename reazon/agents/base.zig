@@ -12,9 +12,6 @@ const ChatMessage = llm.ChatMessage;
 const AgentTemplate = templates.AgentTemplate;
 const LLM = llm.LLM;
 
-/// TODO: implement me so that things can be generic
-const StepWriter = struct {};
-
 pub const InternalStep = struct {
     raw: []const u8,
     thoughts: []const u8,

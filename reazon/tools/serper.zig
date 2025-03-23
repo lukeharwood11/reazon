@@ -1,5 +1,6 @@
 const std = @import("std");
 const base = @import("base.zig");
+const log = std.log.scoped(.serper);
 
 pub const SerperClientError = error{ MemoryError, APIKeyNotSet };
 const Tool = base.Tool;
@@ -13,7 +14,7 @@ pub const SerperResponse = struct {
     knowledgeGraph: ?KnowledgeGraph = null,
     organic: []OrganicResult,
     peopleAlsoAsk: ?[]PeopleAlsoAsk = null,
-    relatedSearches: []RelatedSearch,
+    relatedSearches: ?[]RelatedSearch = null,
     places: ?[]Place = null,
     credits: ?u32 = null,
 };
@@ -26,21 +27,21 @@ pub const SearchParameters = struct {
     page: ?u32 = null,
     // For responses using a different search engine, "engine" is optional.
     engine: ?[]const u8 = null,
-    type: []const u8,
+    type: ?[]const u8 = null,
 };
 
 // TODO: probably should make this a std.json.Value (since the contract isn't clear)
 pub const KnowledgeGraph = struct {
     title: []const u8,
     // Using the field name "type" is allowed here as a struct member.
-    type: []const u8,
+    type: ?[]const u8 = null,
     website: ?[]const u8 = null,
     imageUrl: []const u8,
     description: []const u8,
-    descriptionSource: []const u8,
-    descriptionLink: []const u8,
+    descriptionSource: ?[]const u8 = null,
+    descriptionLink: ?[]const u8 = null,
     // Attributes is a hash map represented as a std.json.Value.
-    attributes: std.json.Value,
+    attributes: ?std.json.Value = null,
 };
 
 pub const OrganicResult = struct {
@@ -63,9 +64,9 @@ pub const Sitelink = struct {
 
 pub const PeopleAlsoAsk = struct {
     question: []const u8,
-    snippet: []const u8,
-    title: []const u8,
-    link: []const u8,
+    snippet: ?[]const u8 = null,
+    title: ?[]const u8 = null,
+    link: ?[]const u8 = null,
 };
 
 pub const RelatedSearch = struct {
@@ -73,15 +74,13 @@ pub const RelatedSearch = struct {
 };
 
 pub const Place = struct {
-    title: []const u8,
-    address: []const u8,
+    title: ?[]const u8 = null,
+    address: ?[]const u8 = null,
     // Ratings are represented as floating-point values.
-    rating: f64,
-    ratingCount: u32,
-    cid: []const u8,
+    rating: ?f64 = null,
+    ratingCount: ?u32 = null,
+    cid: ?[]const u8 = null,
 };
-
-const log = std.log.scoped(.reazon);
 
 pub const SerperConfig = struct {
     max_retries: usize = 3,
