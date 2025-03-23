@@ -217,13 +217,14 @@ pub const SerperTool = struct {
     }
 
     pub fn tool(self: *const SerperTool) Tool {
-        const temp = struct {
+        const x = struct {
+            // I suppose this is a sort of interface? kinda hate this, but it works.
             var this: *const SerperTool = undefined;
             pub fn func(t: *const Tool, allocator: std.mem.Allocator, params: std.json.ObjectMap) ![]const u8 {
                 return search(this, t, allocator, params);
             }
         };
-        temp.this = self;
+        x.this = self;
         return .{
             .name = "web_search",
             .description = "Useful for when you need to search the web",
@@ -233,7 +234,7 @@ pub const SerperTool = struct {
                     .dtype = .string,
                 },
             },
-            .toolFn = temp.func,
+            .toolFn = x.func,
         };
     }
 
