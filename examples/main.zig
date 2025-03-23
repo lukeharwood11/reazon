@@ -79,6 +79,6 @@ pub fn main() !void {
     });
     defer agent.deinit();
 
-    const response = try agent.execute("Check the internet for the best place to eat in New Berlin WI.");
+    const response = try agent.execute("What is the best OpenAI client package for zig?");
     std.log.info("\"{s}\"", .{response});
 }

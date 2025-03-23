@@ -29,11 +29,12 @@ pub const SearchParameters = struct {
     type: []const u8,
 };
 
+// TODO: probably should make this a std.json.Value (since the contract isn't clear)
 pub const KnowledgeGraph = struct {
     title: []const u8,
     // Using the field name "type" is allowed here as a struct member.
     type: []const u8,
-    website: []const u8,
+    website: ?[]const u8 = null,
     imageUrl: []const u8,
     description: []const u8,
     descriptionSource: []const u8,
@@ -155,8 +156,6 @@ pub const SerperTool = struct {
         var response = std.ArrayList(u8).init(allocator);
         defer response.deinit();
 
-        std.debug.print("About to send request.\n", .{});
-
         const body = try std.json.stringifyAlloc(
             allocator,
             .{
@@ -191,21 +190,15 @@ pub const SerperTool = struct {
                 }
                 return "Error from API.";
             } else {
-                // if (ResponseType) |T| {
-                //     const response: T = try json.deserializeStructWithArena(T, allocator, body);
-                //     return response;
-                // } else {
-                //     return;
-                // }
                 const response_body = try std.json.parseFromSliceLeaky(SerperResponse, allocator, response.items, .{
                     .ignore_unknown_fields = true,
                     .allocate = .alloc_always, // get the memory away from the response var
                 });
-                if (response_body.knowledgeGraph) |graph| {
-                    return graph.description;
-                } else {}
 
                 var summary: []const u8 = "";
+                if (response_body.knowledgeGraph) |graph| {
+                    summary = try std.fmt.allocPrint(allocator, "{s}{s}", .{ graph.description, "\n" });
+                }
                 for (response_body.organic, 0..) |result, i| {
                     if (i == 3) break;
                     summary = try std.fmt.allocPrint(allocator, "{s}===Title: {s}\nLink:{s}\n{s}\n==={s}", .{
