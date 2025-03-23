@@ -114,8 +114,6 @@ pub const SerperTool = struct {
             return SerperClientError.APIKeyNotSet;
         };
 
-        std.debug.print("SERPER_API_KEY: {s}\n", .{api_key});
-
         const headers = arena.allocator().alloc(std.http.Header, 2) catch {
             return SerperClientError.MemoryError;
         };
@@ -136,7 +134,14 @@ pub const SerperTool = struct {
         };
     }
 
-    fn search(self: *const SerperTool, _: *const Tool, allocator: std.mem.Allocator, _: std.json.ObjectMap) ![]const u8 {
+    fn search(
+        self: *const SerperTool,
+        _: *const Tool,
+        allocator: std.mem.Allocator,
+        params: std.json.ObjectMap,
+    ) ![]const u8 {
+        const query = params.get("query") orelse return "Error: Missing 'query' parameter.";
+
         const uri = try std.Uri.parse("https://google.serper.dev/search");
 
         const server_header_buffer = try allocator.alloc(u8, 8 * 1024 * 4);
@@ -155,7 +160,7 @@ pub const SerperTool = struct {
         const body = try std.json.stringifyAlloc(
             allocator,
             .{
-                .q = "apple inc",
+                .q = query,
             },
             .{},
         );
@@ -172,11 +177,6 @@ pub const SerperTool = struct {
                 .payload = body,
                 .extra_headers = self.headers,
             });
-
-            // std.debug.print("BODY: {s}\n", .{response.items});
-            // std.debug.print("HEADERS: {s}\n", .{server_header_buffer});
-
-            std.debug.print("Sent request...\n", .{});
 
             const status = res.status;
 
@@ -199,11 +199,11 @@ pub const SerperTool = struct {
                 // }
                 const response_body = try std.json.parseFromSliceLeaky(SerperResponse, allocator, response.items, .{
                     .ignore_unknown_fields = true,
+                    .allocate = .alloc_always, // get the memory away from the response var
                 });
                 if (response_body.knowledgeGraph) |graph| {
                     return graph.description;
                 } else {}
-                std.debug.print("Found {d} results.\n", .{response_body.organic.len});
 
                 var summary: []const u8 = "";
                 for (response_body.organic, 0..) |result, i| {
@@ -234,7 +234,12 @@ pub const SerperTool = struct {
         return .{
             .name = "web_search",
             .description = "Useful for when you need to search the web",
-            .params = &.{},
+            .params = &.{
+                .{
+                    .name = "query",
+                    .dtype = .string,
+                },
+            },
             .toolFn = temp.func,
         };
     }

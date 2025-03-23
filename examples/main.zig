@@ -79,6 +79,6 @@ pub fn main() !void {
     });
     defer agent.deinit();
 
-    const response = try agent.execute("Check the internet for news.");
+    const response = try agent.execute("Check the internet for the best place to eat in New Berlin WI.");
     std.log.info("\"{s}\"", .{response});
 }
