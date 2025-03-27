@@ -2,7 +2,6 @@ const std = @import("std");
 
 // module level exports
 pub const openai = @import("openai.zig");
-pub const groq = @import("groq.zig");
 // end module level exports
 
 pub const ChatMessage = struct {

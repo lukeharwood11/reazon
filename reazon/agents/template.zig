@@ -41,14 +41,14 @@ pub const AgentTemplate = struct {
     // meta properties
     ptr: *const anyopaque,
 
-    formatPromptFn: *const fn (ptr: *const anyopaque, allocator: std.mem.Allocator, input: []const u8, steps: []const InternalStep, tool_manager: ToolManager) anyerror![]const u8,
+    formatPromptFn: *const fn (ptr: *const anyopaque, allocator: std.mem.Allocator, input: base.AgentInput, steps: []const InternalStep, tool_manager: ToolManager) anyerror![]const u8,
     parseOutputFn: *const fn (ptr: *const anyopaque, allocator: std.mem.Allocator, slice: []const u8) anyerror!InternalStep,
 
     pub fn init(ptr: anytype) AgentTemplate {
         const T = @TypeOf(ptr);
         const ptr_info = @typeInfo(T);
         const fns = struct {
-            pub fn formatPrompt(pointer: *const anyopaque, allocator: std.mem.Allocator, input: []const u8, steps: []const InternalStep, tool_manager: ToolManager) anyerror![]const u8 {
+            pub fn formatPrompt(pointer: *const anyopaque, allocator: std.mem.Allocator, input: base.AgentInput, steps: []const InternalStep, tool_manager: ToolManager) anyerror![]const u8 {
                 const self: T = @ptrCast(@alignCast(pointer));
                 return ptr_info.pointer.child.formatPrompt(self, allocator, input, steps, tool_manager);
             }
@@ -65,7 +65,7 @@ pub const AgentTemplate = struct {
         };
     }
 
-    pub fn formatPrompt(self: *const AgentTemplate, allocator: std.mem.Allocator, input: []const u8, steps: []const InternalStep, tool_manager: ToolManager) anyerror![]const u8 {
+    pub fn formatPrompt(self: *const AgentTemplate, allocator: std.mem.Allocator, input: base.AgentInput, steps: []const InternalStep, tool_manager: ToolManager) anyerror![]const u8 {
         return self.formatPromptFn(self.ptr, allocator, input, steps, tool_manager);
     }
 

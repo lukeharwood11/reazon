@@ -72,7 +72,6 @@ pub fn main() !void {
     defer openai.deinit();
 
     var agent = try Agent.init(allocator, .{
-        .system_prompt = "You are a helpful agent.",
         .tools = tools,
         .llm = openai.llm(),
         .template = rat.template(),
@@ -85,7 +84,9 @@ pub fn main() !void {
     const opt = iter.next();
 
     if (opt) |q| {
-        const response = try agent.execute(q);
+        const response = try agent.execute(.{
+            .text = q,
+        });
         std.log.info("\"{s}\"", .{response});
     }
 }

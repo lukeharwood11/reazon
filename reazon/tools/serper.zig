@@ -97,10 +97,9 @@ pub const SerperTool = struct {
         };
         arena.* = std.heap.ArenaAllocator.init(allocator);
 
-        errdefer blk: {
+        errdefer {
             arena.deinit();
             allocator.destroy(arena);
-            break :blk;
         }
 
         // get env vars

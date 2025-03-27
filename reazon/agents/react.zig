@@ -54,17 +54,14 @@ pub const ReactAgentTemplate = struct {
         });
     }
 
-    pub fn formatPrompt(self: *const ReactAgentTemplate, allocator: std.mem.Allocator, input: []const u8, steps: []const InternalStep, tool_manager: tools.ToolManager) ![]const u8 {
+    pub fn formatPrompt(self: *const ReactAgentTemplate, allocator: std.mem.Allocator, input: base.AgentInput, steps: []const InternalStep, tool_manager: tools.ToolManager) ![]const u8 {
         // For this AgentTemplate set, input should be a string (but doesn't have to be for other implementations)
         // Does this work?
-        if (@TypeOf(input) != []const u8) {
-            @compileError("Input is of type '" ++ @typeName(@TypeOf(input)) ++ "' but should be of type '[]const u8'.");
-        }
         const step_string = try templ.formatSteps(allocator, steps, formatInternalStep);
         const p = try std.fmt.allocPrint(allocator, prompt, .{
             self.system_prompt,
             try tool_manager.describe(allocator), // arena allocator, how can I fix this?
-            input,
+            input.text,
             step_string,
         });
         return p;

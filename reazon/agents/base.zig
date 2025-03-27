@@ -12,6 +12,11 @@ const ChatMessage = llm.ChatMessage;
 const AgentTemplate = templates.AgentTemplate;
 const LLM = llm.LLM;
 
+pub const AgentInput = struct {
+    text: []const u8,
+    messages: []const ChatMessage = &.{},
+};
+
 pub const InternalStep = struct {
     raw: []const u8,
     thoughts: []const u8,
@@ -39,9 +44,14 @@ pub const Agent = struct {
         tools: []const Tool,
         llm: LLM,
         template: AgentTemplate,
-        system_prompt: []const u8 = "You are a helpful assistant.",
         /// The maximum number of thought/action/observation sets the agent will allow.
         max_iterations: usize = 8,
+        log_level: AgentLogLevel = .all,
+    };
+
+    pub const AgentLogLevel = enum {
+        all,
+        none,
     };
 
     pub fn init(allocator: std.mem.Allocator, config: AgentConfig) !Agent {
@@ -65,7 +75,7 @@ pub const Agent = struct {
         self.arena.child_allocator.destroy(self.arena);
     }
 
-    pub fn execute(self: *Agent, input: anytype) ![]const u8 {
+    pub fn execute(self: *Agent, input: AgentInput) ![]const u8 {
         const allocator = self.arena.child_allocator;
         var internal_steps = try ArrayList(InternalStep).initCapacity(allocator, 2);
         defer internal_steps.deinit(allocator);
@@ -89,8 +99,11 @@ pub const Agent = struct {
                 response,
             );
 
-            logging.logInfo("LLM thought: {s}", step.thoughts, logging.Colors.ok_green ++ logging.Colors.bold ++ logging.Colors.italic);
-            logging.logInfo("{s}", step.tool, logging.Colors.bold ++ logging.Colors.italic);
+            if (self.config.log_level == .all) {
+                logging.logInfo("{s}", step.thoughts, logging.Colors.ok_green ++ logging.Colors.bold ++ logging.Colors.italic);
+                logging.logInfo("{s}", step.tool, logging.Colors.ok_blue ++ logging.Colors.bold ++ logging.Colors.italic);
+                logging.logInfo("{s}", step.parameters, logging.Colors.ok_blue ++ logging.Colors.bold ++ logging.Colors.italic);
+            }
 
             // TODO: luke build this:
             // there should be an arena allocator for each tool call so all memory used in that function is freed.
@@ -98,7 +111,10 @@ pub const Agent = struct {
                 self.arena.allocator(),
                 step,
             );
-            logging.logInfo("{s}", output.content, logging.Colors.fail ++ logging.Colors.bold ++ logging.Colors.italic);
+
+            if (self.config.log_level == .all) {
+                logging.logInfo("{s}", output.content, logging.Colors.fail ++ logging.Colors.bold ++ logging.Colors.italic);
+            }
 
             step.observe(output.content);
             try internal_steps.append(allocator, step);
