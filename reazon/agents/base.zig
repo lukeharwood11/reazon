@@ -23,6 +23,7 @@ pub const InternalStep = struct {
     tool: []const u8,
     parameters: []const u8,
     observation: ?[]const u8 = null,
+    @"error": ?[]const u8 = null,
 
     const ParseError = error{
         MissingThoughts,

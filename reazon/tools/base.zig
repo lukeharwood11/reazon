@@ -84,20 +84,22 @@ pub const Tool = struct {
     };
 
     // should pass in an arena allocator
+    // 08/09/2025 - Adding ArrayList for string handling
     pub fn describe(self: *const Tool, allocator: std.mem.Allocator) ![]const u8 {
         if (self.params.len > 0) {
-            var arg_text: []const u8 = "";
+            var arg_text = std.ArrayList(u8).init(allocator);
+            defer arg_text.deinit();
             for (self.params, 0..) |arg, i| {
                 const description = try arg.describe(allocator);
+                defer allocator.free(description);
                 if (i != 0) {
-                    arg_text = try std.fmt.allocPrint(allocator, "{s}, {s}", .{ arg_text, description });
-                } else {
-                    arg_text = description;
+                    try arg_text.appendSlice(", ");
                 }
+                try arg_text.appendSlice(description);
             }
             const tool_text = try std.fmt.allocPrint(allocator, "{{{s} - parameters: {s}}}", .{
                 self.name,
-                arg_text,
+                arg_text.items,
             });
             return tool_text;
         } else {
@@ -178,20 +180,18 @@ pub const ToolManager = struct {
     };
 
     // should pass in an arena allocator
+    // 08/09/2025 - refactor to use ArrayList instead of allocPrint for concatenating strings
     pub fn describe(self: *const ToolManager, allocator: std.mem.Allocator) ![]const u8 {
-        var tool_text: []const u8 = undefined;
-        var arena = std.heap.ArenaAllocator.init(allocator);
-        defer arena.deinit();
-        const alloc = arena.allocator();
+        var tool_text = std.ArrayList(u8).init(allocator);
         for (self.tools.items, 0..) |tool, i| {
-            const description = try tool.describe(alloc);
+            const description = try tool.describe(allocator);
+            defer allocator.free(description);
             if (i != 0) {
-                tool_text = try std.fmt.allocPrint(alloc, "{s}, {s}", .{ tool_text, description });
-            } else {
-                tool_text = description;
+                try tool_text.appendSlice(", ");
             }
+            try tool_text.appendSlice(description);
         }
-        return allocator.dupe(u8, tool_text);
+        return tool_text.toOwnedSlice();
     }
 
     pub fn execute(self: *const ToolManager, allocator: std.mem.Allocator, step: InternalStep) !ToolOutput {

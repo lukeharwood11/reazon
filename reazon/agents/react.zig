@@ -38,8 +38,8 @@ pub const ReactAgentTemplate = struct {
     };
 
     fn formatInternalStep(step: InternalStep, allocator: std.mem.Allocator) ![]const u8 {
-        // FIXME: if the string can't be parsed correctly, this will print an invalid output.
-        // Switch to display `raw` if it wasn't parsed.
+        if (step.@"error") |err| return err;
+        if (step.observation == null) @panic("Passed `null` observation to `format_steps`");
         const FORMAT_STRING =
             \\thoughts: {s}
             \\tool: {s}
@@ -67,39 +67,50 @@ pub const ReactAgentTemplate = struct {
         return p;
     }
 
-    pub fn parseOutput(_: *const ReactAgentTemplate, allocator: std.mem.Allocator, slice: []const u8) !InternalStep {
+    pub fn parseOutput(
+        _: *const ReactAgentTemplate,
+        allocator: std.mem.Allocator,
+        slice: []const u8,
+    ) !InternalStep {
         // split by lines
         var step: InternalStep = undefined;
+        var error_string: ?[]const u8 = null;
         step.observation = null;
-
         var lines = std.mem.tokenizeSequence(u8, slice, "\n");
         // parse thoughts
         step.raw = try allocator.dupe(u8, slice);
         if (lines.next()) |line| {
-            if (line.len >= "thoughts: ".len) {
+            if (std.mem.startsWith(u8, line, "thoughts: ")) {
                 // TODO: do error handling
                 step.thoughts = try allocator.dupe(
                     u8,
                     std.mem.trim(u8, line["thoughts: ".len..], "\t "),
                 );
+            } else {
+                const err = "Failed to parse thoughts (make sure to follow instructions clearly).";
+                error_string = if (error_string) |err_string| try std.fmt.allocPrint(allocator, "{s} {s}", .{ err_string, err }) else err;
             }
         }
         if (lines.next()) |line| {
-            if (line.len >= "tool: ".len) {
-                // TODO: do error handling
+            if (std.mem.startsWith(u8, line, "tool: ")) {
                 step.tool = try allocator.dupe(
                     u8,
                     std.mem.trim(u8, line["tool: ".len..], "\t "),
                 );
+            } else {
+                const err = "Failed to parse tool (make sure to follow instructions clearly).";
+                error_string = if (error_string) |err_string| try std.fmt.allocPrint(allocator, "{s} {s}", .{ err_string, err }) else err;
             }
         }
         if (lines.next()) |line| {
-            if (line.len >= "parameters: ".len) {
-                // TODO do error handling
+            if (std.mem.startsWith(u8, line, "parameters: ")) {
                 step.parameters = try allocator.dupe(
                     u8,
                     std.mem.trim(u8, line["parameters: ".len..], "\t "),
                 );
+            } else {
+                const err = "Failed to parse parameters (make sure to follow instructions clearly).";
+                error_string = if (error_string) |err_string| try std.fmt.allocPrint(allocator, "{s} {s}", .{ err_string, err }) else err;
             }
         }
         return step;
